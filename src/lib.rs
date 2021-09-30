@@ -2,7 +2,7 @@ use std::f64::{consts::PI, INFINITY};
 
 const EPSILON: f64 = 10e-10;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum DubinsPathType {
     LSL,
     LSR,
@@ -13,7 +13,7 @@ pub enum DubinsPathType {
 }
 
 impl DubinsPathType {
-    fn from(value: usize) -> Self {
+    pub fn from(value: usize) -> Self {
         match value {
             0 => Self::LSL,
             1 => Self::LSR,
@@ -25,7 +25,7 @@ impl DubinsPathType {
         }
     }
 
-    fn to(self: &Self) -> usize {
+    pub fn to(self: &Self) -> usize {
         match self {
             Self::LSL => 0,
             Self::LSR => 1,
@@ -35,9 +35,20 @@ impl DubinsPathType {
             Self::LRL => 5,
         }
     }
+
+    pub fn all() -> [DubinsPathType; 6] {
+        [
+            Self::LSL,
+            Self::LSR,
+            Self::RSL,
+            Self::RSR,
+            Self::RLR,
+            Self::LRL,
+        ]
+    }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct DubinsPath {
     /* the initial configuration */
     pub qi: [f64; 3],
@@ -49,7 +60,7 @@ pub struct DubinsPath {
     pub type_: DubinsPathType,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum DubErr {
     COCONFIGS, /* Colocated configurations */
     PARAM,     /* Path parameterisitation error */
@@ -57,7 +68,7 @@ pub enum DubErr {
     NOPATH,    /* no connection between configurations with this word */
 }
 
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum SegmentType {
     L,
     S,
@@ -67,7 +78,7 @@ enum SegmentType {
 /* The segment types for each of the Path types */
 const DIRDATA: [[SegmentType; 3]; 6] = [[SegmentType::L, SegmentType::S, SegmentType::L], [SegmentType::L, SegmentType::S, SegmentType::R], [SegmentType::R, SegmentType::S, SegmentType::L], [SegmentType::R, SegmentType::S, SegmentType::R], [SegmentType::R, SegmentType::L, SegmentType::R], [SegmentType::L, SegmentType::R, SegmentType::L]];
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 struct DubinsIntermediateResults {
     alpha: f64,
     beta: f64,
@@ -105,16 +116,15 @@ fn mod2pi(theta: f64) -> f64 {
     fmodr(theta, 2. * PI)
 }
 
-/// Find the shortest path out of the 6 Dubin's paths
-pub fn shortest_path(q0: [f64; 3], q1: [f64; 3], rho: f64) -> Result<DubinsPath, DubErr> {
+/// Find the shortest path out of the specified Dubin's paths
+pub fn shortest_path_in(q0: [f64; 3], q1: [f64; 3], rho: f64, types: Vec<DubinsPathType>) -> Result<DubinsPath, DubErr> {
     let mut best_cost = INFINITY;
     let mut best_params = [0.; 3];
     let mut best_type = None;
 
     let intermediate_results = intermediate_results(q0, q1, rho)?;
 
-    for i in 0..6 {
-        let path_type = DubinsPathType::from(i);
+    for path_type in types {
         match word(&intermediate_results, path_type) {
             Ok(params) => {
                 let cost = params[0] + params[1] + params[2];
@@ -139,27 +149,50 @@ pub fn shortest_path(q0: [f64; 3], q1: [f64; 3], rho: f64) -> Result<DubinsPath,
     }
 }
 
-// int path(DubinsPath* path, double q0[3], double q1[3], double rho, DubinsPathType pathType)
-// {
-//     int errcode;
-//     DubinsIntermediateResults in;
-//     errcode = intermediate_results(&in, q0, q1, rho);
-//     if(errcode == EDUBOK) {
-//         double params[3];
-//         errcode = word(&in, pathType, params);
-//         if(errcode == EDUBOK) {
-//             path->param[0] = params[0];
-//             path->param[1] = params[1];
-//             path->param[2] = params[2];
-//             path->qi[0] = q0[0];
-//             path->qi[1] = q0[1];
-//             path->qi[2] = q0[2];
-//             path->rho = rho;
-//             path->type = pathType;
-//         }
-//     }
-//     return errcode;
-// }
+/// Find the shortest path out of the 6 Dubin's paths
+pub fn shortest_path(q0: [f64; 3], q1: [f64; 3], rho: f64) -> Result<DubinsPath, DubErr> {
+    let mut best_cost = INFINITY;
+    let mut best_params = [0.; 3];
+    let mut best_type = None;
+
+    let intermediate_results = intermediate_results(q0, q1, rho)?;
+
+    for path_type in DubinsPathType::all() {
+        let params = word(&intermediate_results, path_type);
+
+        if params.is_ok() {
+            let param = params.unwrap();
+            let cost = param[0] + param[1] + param[2];
+            if cost < best_cost {
+                best_cost = cost;
+                best_params = param;
+                best_type = Some(path_type);
+            }
+        }
+    }
+
+    match best_type {
+        Some(type_) => Ok(DubinsPath {
+            qi: q0,
+            rho,
+            param: best_params,
+            type_,
+        }),
+        None => Err(DubErr::NOPATH),
+    }
+}
+
+pub fn path(q0: [f64; 3], q1: [f64; 3], rho: f64, path_type: DubinsPathType) -> Result<DubinsPath, DubErr> {
+    let in_ = intermediate_results(q0, q1, rho)?;
+    let params = word(&in_, path_type)?;
+
+    Ok(DubinsPath {
+        param: params,
+        qi: q0,
+        rho,
+        type_: path_type,
+    })
+}
 
 pub fn path_length(path: &DubinsPath) -> f64 {
     (path.param[0] + path.param[1] + path.param[2]) * path.rho
