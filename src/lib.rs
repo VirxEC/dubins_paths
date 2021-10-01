@@ -37,30 +37,15 @@ impl DubinsPathType {
     }
 
     pub fn csc() -> [DubinsPathType; 4] {
-        [
-            Self::LSL,
-            Self::LSR,
-            Self::RSL,
-            Self::RSR,
-        ]
+        [Self::LSL, Self::LSR, Self::RSL, Self::RSR]
     }
 
     pub fn ccc() -> [DubinsPathType; 2] {
-        [
-            Self::RLR,
-            Self::LRL,
-        ]
+        [Self::RLR, Self::LRL]
     }
 
     pub fn all() -> [DubinsPathType; 6] {
-        [
-            Self::LSL,
-            Self::LSR,
-            Self::RSL,
-            Self::RSR,
-            Self::RLR,
-            Self::LRL,
-        ]
+        [Self::LSL, Self::LSR, Self::RSL, Self::RSR, Self::RLR, Self::LRL]
     }
 }
 
