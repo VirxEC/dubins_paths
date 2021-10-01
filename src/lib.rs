@@ -4,15 +4,22 @@ const EPSILON: f64 = 10e-10;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DubinsPathType {
+    /// A "Left Straight Left" Dubin's path
     LSL,
+    /// A "Left Straight Right" Dubin's path
     LSR,
+    /// A "Right Straight Left" Dubin's path
     RSL,
+    /// A "Right Straight Right" Dubin's path
     RSR,
+    /// A "Right Left Right" Dubin's path
     RLR,
+    /// A "Left Right Left" Dubin's path
     LRL,
 }
 
 impl DubinsPathType {
+    /// Convert from usize to a path type
     pub fn from(value: usize) -> Self {
         match value {
             0 => Self::LSL,
@@ -25,6 +32,7 @@ impl DubinsPathType {
         }
     }
 
+    /// Convert from path type to usize
     pub fn to(self: &Self) -> usize {
         match self {
             Self::LSL => 0,
@@ -36,14 +44,17 @@ impl DubinsPathType {
         }
     }
 
+    /// Get all of the "Turn Straight Turn" path types
     pub fn csc() -> [DubinsPathType; 4] {
         [Self::LSL, Self::LSR, Self::RSL, Self::RSR]
     }
 
+    /// Get all of the "Turn Turn Turn" path types
     pub fn ccc() -> [DubinsPathType; 2] {
         [Self::RLR, Self::LRL]
     }
 
+    /// Get all of the path types
     pub fn all() -> [DubinsPathType; 6] {
         [Self::LSL, Self::LSR, Self::RSL, Self::RSR, Self::RLR, Self::LRL]
     }
@@ -63,20 +74,27 @@ pub struct DubinsPath {
 
 #[derive(Clone, Copy, Debug)]
 pub enum DubinsError {
-    CoConfigs, /* Colocated configurations */
-    Param,     /* Path parameterisitation error */
-    BadRho,    /* the rho value is invalid */
-    NoPath,    /* no connection between configurations with this word */
+    /// Colocated configurations
+    CoConfigs,
+    /// Path parameterisitation error
+    Param,
+    /// The rho value is invalid
+    BadRho,
+    /// No connection between configurations with this word
+    NoPath,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum SegmentType {
+    /// Left
     L,
+    /// Straight
     S,
+    /// Right
     R,
 }
 
-/* The segment types for each of the Path types */
+/// The segment types for each of the path types
 const DIRDATA: [[SegmentType; 3]; 6] = [[SegmentType::L, SegmentType::S, SegmentType::L], [SegmentType::L, SegmentType::S, SegmentType::R], [SegmentType::R, SegmentType::S, SegmentType::L], [SegmentType::R, SegmentType::S, SegmentType::R], [SegmentType::R, SegmentType::L, SegmentType::R], [SegmentType::L, SegmentType::R, SegmentType::L]];
 
 #[derive(Clone, Copy, Debug)]
@@ -152,6 +170,7 @@ pub fn shortest_path(q0: [f64; 3], q1: [f64; 3], rho: f64) -> Result<DubinsPath,
     shortest_path_in(q0, q1, rho, &DubinsPathType::all())
 }
 
+/// Calculate a Dubin's path
 pub fn path(q0: [f64; 3], q1: [f64; 3], rho: f64, path_type: DubinsPathType) -> Result<DubinsPath, DubinsError> {
     let in_ = intermediate_results(q0, q1, rho)?;
     let params = word(&in_, path_type)?;
