@@ -36,6 +36,22 @@ impl DubinsPathType {
         }
     }
 
+    pub fn csc() -> [DubinsPathType; 4] {
+        [
+            Self::LSL,
+            Self::LSR,
+            Self::RSL,
+            Self::RSR,
+        ]
+    }
+
+    pub fn ccc() -> [DubinsPathType; 2] {
+        [
+            Self::RLR,
+            Self::LRL,
+        ]
+    }
+
     pub fn all() -> [DubinsPathType; 6] {
         [
             Self::LSL,
@@ -117,7 +133,7 @@ fn mod2pi(theta: f64) -> f64 {
 }
 
 /// Find the shortest path out of the specified Dubin's paths
-pub fn shortest_path_in(q0: [f64; 3], q1: [f64; 3], rho: f64, types: Vec<DubinsPathType>) -> Result<DubinsPath, DubErr> {
+pub fn shortest_path_in(q0: [f64; 3], q1: [f64; 3], rho: f64, types: &[DubinsPathType]) -> Result<DubinsPath, DubErr> {
     let mut best_cost = INFINITY;
     let mut best_params = [0.; 3];
     let mut best_type = None;
@@ -125,16 +141,13 @@ pub fn shortest_path_in(q0: [f64; 3], q1: [f64; 3], rho: f64, types: Vec<DubinsP
     let intermediate_results = intermediate_results(q0, q1, rho)?;
 
     for path_type in types {
-        match word(&intermediate_results, path_type) {
-            Ok(params) => {
-                let cost = params[0] + params[1] + params[2];
-                if cost < best_cost {
-                    best_cost = cost;
-                    best_params = params;
-                    best_type = Some(path_type);
-                }
+        if let Ok(param) = word(&intermediate_results, *path_type) {
+            let cost = param[0] + param[1] + param[2];
+            if cost < best_cost {
+                best_cost = cost;
+                best_params = param;
+                best_type = Some(*path_type);
             }
-            Err(_) => (),
         }
     }
 
@@ -151,35 +164,7 @@ pub fn shortest_path_in(q0: [f64; 3], q1: [f64; 3], rho: f64, types: Vec<DubinsP
 
 /// Find the shortest path out of the 6 Dubin's paths
 pub fn shortest_path(q0: [f64; 3], q1: [f64; 3], rho: f64) -> Result<DubinsPath, DubErr> {
-    let mut best_cost = INFINITY;
-    let mut best_params = [0.; 3];
-    let mut best_type = None;
-
-    let intermediate_results = intermediate_results(q0, q1, rho)?;
-
-    for path_type in DubinsPathType::all() {
-        let params = word(&intermediate_results, path_type);
-
-        if params.is_ok() {
-            let param = params.unwrap();
-            let cost = param[0] + param[1] + param[2];
-            if cost < best_cost {
-                best_cost = cost;
-                best_params = param;
-                best_type = Some(path_type);
-            }
-        }
-    }
-
-    match best_type {
-        Some(type_) => Ok(DubinsPath {
-            qi: q0,
-            rho,
-            param: best_params,
-            type_,
-        }),
-        None => Err(DubErr::NOPATH),
-    }
+    shortest_path_in(q0, q1, rho, &DubinsPathType::all())
 }
 
 pub fn path(q0: [f64; 3], q1: [f64; 3], rho: f64, path_type: DubinsPathType) -> Result<DubinsPath, DubErr> {
