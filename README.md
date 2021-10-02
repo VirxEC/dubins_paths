@@ -1,5 +1,7 @@
 # Dubin's Paths
 
+Rust code for calculating Dubin's Paths
+
 ## DubinsPathType
 
 ### LSL
