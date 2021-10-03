@@ -58,13 +58,13 @@ Returns `[Self::LSL, Self::LSR, Self::RSL, Self::RSR, Self::RLR, Self::LRL]`
 
 ### q0
 
-Three f64's in the format: `[x, y, theta]`
+Three f32's in the format: `[x, y, theta]`
 
 Represents starting location and orientation of the car.
 
 ### q1
 
-Three f64's in the format: `[x, y, theta]`
+Three f32's in the format: `[x, y, theta]`
 
 Represents ending location and orientation of the car.
 
@@ -96,19 +96,19 @@ The rho value is invalid
 
 No connection between configurations with this word
 
-## shortest_path(q0: [f64; 3], q1: [f64; 3], rho: f64) -> Result<DubinsPath, DubinsError>
+## shortest_path(q0: [f32; 3], q1: [f32; 3], rho: f32) -> Result<DubinsPath, DubinsError>
 
 Find the shortest path out of the 6 Dubin's paths.
 
 ### q0
 
-Three f64's in the format: `[x, y, theta]`
+Three f32's in the format: `[x, y, theta]`
 
 Represents starting location and orientation of the car.
 
 ### q1
 
-Three f64's in the format: `[x, y, theta]`
+Three f32's in the format: `[x, y, theta]`
 
 Represents ending location and orientation of the car.
 
@@ -118,19 +118,19 @@ The turning radius of the car.
 
 Can be can be calculated by taking the forward velocity of the car and dividing it by the car's angular velocity.
 
-## shortest_path_in(q0: [f64; 3], q1: [f64; 3], rho: f64, types: &[DubinsPathType]) -> Result<DubinsPath, DubinsError>
+## shortest_path_in(q0: [f32; 3], q1: [f32; 3], rho: f32, types: &[DubinsPathType]) -> Result<DubinsPath, DubinsError>
 
 Find the shortest path out of the specified Dubin's paths.
 
 ### q0
 
-Three f64's in the format: `[x, y, theta]`
+Three f32's in the format: `[x, y, theta]`
 
 Represents starting location and orientation of the car.
 
 ### q1
 
-Three f64's in the format: `[x, y, theta]`
+Three f32's in the format: `[x, y, theta]`
 
 Represents ending location and orientation of the car.
 
@@ -144,19 +144,19 @@ Can be can be calculated by taking the forward velocity of the car and dividing 
 
 A reference to a slice that contains the path types to be compared.
 
-## path(q0: [f64; 3], q1: [f64; 3], rho: f64, path_type: DubinsPathType) -> Result<DubinsPath, DubinsError>
+## path(q0: [f32; 3], q1: [f32; 3], rho: f32, path_type: DubinsPathType) -> Result<DubinsPath, DubinsError>
 
 Calculate the Dubin's path that was specified.
 
 ### q0
 
-Three f64's in the format: `[x, y, theta]`
+Three f32's in the format: `[x, y, theta]`
 
 Represents starting location and orientation of the car.
 
 ### q1
 
-Three f64's in the format: `[x, y, theta]`
+Three f32's in the format: `[x, y, theta]`
 
 Represents ending location and orientation of the car.
 

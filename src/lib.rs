@@ -1,6 +1,6 @@
-use std::f64::{consts::PI, INFINITY};
+use std::f32::{consts::PI, INFINITY};
 
-const EPSILON: f64 = 10e-10;
+const EPSILON: f32 = 10e-10;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DubinsPathType {
@@ -55,11 +55,11 @@ impl DubinsPathType {
 #[derive(Clone, Copy, Debug)]
 pub struct DubinsPath {
     /* the initial configuration */
-    pub qi: [f64; 3],
+    pub qi: [f32; 3],
     /* the lengths of the three segments */
-    pub param: [f64; 3],
+    pub param: [f32; 3],
     /* model forward velocity / model angular velocity */
-    pub rho: f64,
+    pub rho: f32,
     /* the path type described */
     pub type_: DubinsPathType,
 }
@@ -91,15 +91,15 @@ const DIRDATA: [[SegmentType; 3]; 6] = [[SegmentType::L, SegmentType::S, Segment
 
 #[derive(Clone, Copy, Debug)]
 struct DubinsIntermediateResults {
-    alpha: f64,
-    beta: f64,
-    d: f64,
-    sa: f64,
-    sb: f64,
-    ca: f64,
-    cb: f64,
-    c_ab: f64,
-    d_sq: f64,
+    alpha: f32,
+    beta: f32,
+    d: f32,
+    sa: f32,
+    sb: f32,
+    ca: f32,
+    cb: f32,
+    c_ab: f32,
+    d_sq: f32,
 }
 
 impl Default for DubinsIntermediateResults {
@@ -119,16 +119,16 @@ impl Default for DubinsIntermediateResults {
 }
 
 /// Floating point modulus suitable for rings
-fn fmodr(x: f64, y: f64) -> f64 {
+fn fmodr(x: f32, y: f32) -> f32 {
     x - y * (x / y).floor()
 }
 
-fn mod2pi(theta: f64) -> f64 {
+fn mod2pi(theta: f32) -> f32 {
     fmodr(theta, 2. * PI)
 }
 
 /// Find the shortest path out of the specified Dubin's paths
-pub fn shortest_path_in(q0: [f64; 3], q1: [f64; 3], rho: f64, types: &[DubinsPathType]) -> Result<DubinsPath, DubinsError> {
+pub fn shortest_path_in(q0: [f32; 3], q1: [f32; 3], rho: f32, types: &[DubinsPathType]) -> Result<DubinsPath, DubinsError> {
     let mut best_cost = INFINITY;
     let mut best_params = [0.; 3];
     let mut best_type = None;
@@ -158,12 +158,12 @@ pub fn shortest_path_in(q0: [f64; 3], q1: [f64; 3], rho: f64, types: &[DubinsPat
 }
 
 /// Find the shortest path out of the 6 Dubin's paths
-pub fn shortest_path(q0: [f64; 3], q1: [f64; 3], rho: f64) -> Result<DubinsPath, DubinsError> {
+pub fn shortest_path(q0: [f32; 3], q1: [f32; 3], rho: f32) -> Result<DubinsPath, DubinsError> {
     shortest_path_in(q0, q1, rho, &DubinsPathType::ALL)
 }
 
 /// Calculate a Dubin's path
-pub fn path(q0: [f64; 3], q1: [f64; 3], rho: f64, path_type: DubinsPathType) -> Result<DubinsPath, DubinsError> {
+pub fn path(q0: [f32; 3], q1: [f32; 3], rho: f32, path_type: DubinsPathType) -> Result<DubinsPath, DubinsError> {
     let in_ = intermediate_results(q0, q1, rho)?;
     let params = word(&in_, path_type)?;
 
@@ -175,7 +175,7 @@ pub fn path(q0: [f64; 3], q1: [f64; 3], rho: f64, path_type: DubinsPathType) -> 
     })
 }
 
-pub fn path_length(path: &DubinsPath) -> f64 {
+pub fn path_length(path: &DubinsPath) -> f32 {
     (path.param[0] + path.param[1] + path.param[2]) * path.rho
 }
 
@@ -197,7 +197,7 @@ pub fn path_length(path: &DubinsPath) -> f64 {
 //     return path->param[i];
 // }
 
-fn segment(t: f64, qi: [f64; 3], type_: SegmentType) -> [f64; 3] {
+fn segment(t: f32, qi: [f32; 3], type_: SegmentType) -> [f32; 3] {
     let st = qi[2].sin();
     let ct = qi[2].cos();
 
@@ -214,7 +214,7 @@ fn segment(t: f64, qi: [f64; 3], type_: SegmentType) -> [f64; 3] {
     qt
 }
 
-fn path_sample(path: &DubinsPath, t: f64) -> Result<[f64; 3], DubinsError> {
+fn path_sample(path: &DubinsPath, t: f32) -> Result<[f32; 3], DubinsError> {
     /* tprime is the normalised variant of the parameter t */
     let tprime = t / path.rho;
     let types = DIRDATA[path.type_.to()];
@@ -252,11 +252,11 @@ fn path_sample(path: &DubinsPath, t: f64) -> Result<[f64; 3], DubinsError> {
 /// Get a vec of all the points along the path
 ///
 /// All points are equally spaced out
-pub fn path_sample_many(path: &DubinsPath, step_distance: f64) -> Result<Vec<[f64; 3]>, DubinsError> {
+pub fn path_sample_many(path: &DubinsPath, step_distance: f32) -> Result<Vec<[f32; 3]>, DubinsError> {
     let length = path_length(path);
 
     let mut x = 0.;
-    let mut results: Vec<[f64; 3]> = Vec::new();
+    let mut results: Vec<[f32; 3]> = Vec::new();
 
     while x < length {
         let q = path_sample(path, x)?;
@@ -270,7 +270,7 @@ pub fn path_sample_many(path: &DubinsPath, step_distance: f64) -> Result<Vec<[f6
 }
 
 /// Get the endpoint of the path
-pub fn path_endpoint(path: &DubinsPath) -> Result<[f64; 3], DubinsError> {
+pub fn path_endpoint(path: &DubinsPath) -> Result<[f32; 3], DubinsError> {
     path_sample(path, path_length(path) - EPSILON)
 }
 
@@ -298,7 +298,7 @@ pub fn path_endpoint(path: &DubinsPath) -> Result<[f64; 3], DubinsError> {
 //     return 0;
 // }
 
-fn intermediate_results(q0: [f64; 3], q1: [f64; 3], rho: f64) -> Result<DubinsIntermediateResults, DubinsError> {
+fn intermediate_results(q0: [f32; 3], q1: [f32; 3], rho: f32) -> Result<DubinsIntermediateResults, DubinsError> {
     if rho <= 0.0 {
         return Err(DubinsError::BadRho);
     }
@@ -330,7 +330,7 @@ fn intermediate_results(q0: [f64; 3], q1: [f64; 3], rho: f64) -> Result<DubinsIn
     })
 }
 
-fn lsl(in_: &DubinsIntermediateResults) -> Result<[f64; 3], DubinsError> {
+fn lsl(in_: &DubinsIntermediateResults) -> Result<[f32; 3], DubinsError> {
     let p_sq = 2. + in_.d_sq - (2. * in_.c_ab) + (2. * in_.d * (in_.sa - in_.sb));
 
     if p_sq >= 0. {
@@ -343,7 +343,7 @@ fn lsl(in_: &DubinsIntermediateResults) -> Result<[f64; 3], DubinsError> {
     Err(DubinsError::NoPath)
 }
 
-fn rsr(in_: &DubinsIntermediateResults) -> Result<[f64; 3], DubinsError> {
+fn rsr(in_: &DubinsIntermediateResults) -> Result<[f32; 3], DubinsError> {
     let p_sq = 2. + in_.d_sq - (2. * in_.c_ab) + (2. * in_.d * (in_.sb - in_.sa));
 
     if p_sq >= 0. {
@@ -356,12 +356,12 @@ fn rsr(in_: &DubinsIntermediateResults) -> Result<[f64; 3], DubinsError> {
     Err(DubinsError::NoPath)
 }
 
-fn lsr(in_: &DubinsIntermediateResults) -> Result<[f64; 3], DubinsError> {
+fn lsr(in_: &DubinsIntermediateResults) -> Result<[f32; 3], DubinsError> {
     let p_sq = -2. + (in_.d_sq) + (2. * in_.c_ab) + (2. * in_.d * (in_.sa + in_.sb));
 
     if p_sq >= 0. {
         let p = p_sq.sqrt();
-        let tmp0 = (-in_.ca - in_.cb).atan2(in_.d + in_.sa + in_.sb) - (-2_f64).atan2(p);
+        let tmp0 = (-in_.ca - in_.cb).atan2(in_.d + in_.sa + in_.sb) - (-2_f32).atan2(p);
 
         return Ok([mod2pi(tmp0 - in_.alpha), p, mod2pi(tmp0 - mod2pi(in_.beta))]);
     }
@@ -369,11 +369,11 @@ fn lsr(in_: &DubinsIntermediateResults) -> Result<[f64; 3], DubinsError> {
     Err(DubinsError::NoPath)
 }
 
-fn rsl(in_: &DubinsIntermediateResults) -> Result<[f64; 3], DubinsError> {
+fn rsl(in_: &DubinsIntermediateResults) -> Result<[f32; 3], DubinsError> {
     let p_sq = -2. + in_.d_sq + (2. * in_.c_ab) - (2. * in_.d * (in_.sa + in_.sb));
     if p_sq >= 0. {
         let p = p_sq.sqrt();
-        let tmp0 = (in_.ca + in_.cb).atan2(in_.d - in_.sa - in_.sb) - (2_f64).atan2(p);
+        let tmp0 = (in_.ca + in_.cb).atan2(in_.d - in_.sa - in_.sb) - (2_f32).atan2(p);
 
         return Ok([mod2pi(in_.alpha - tmp0), p, mod2pi(in_.beta - tmp0)]);
     }
@@ -381,7 +381,7 @@ fn rsl(in_: &DubinsIntermediateResults) -> Result<[f64; 3], DubinsError> {
     Err(DubinsError::NoPath)
 }
 
-fn rlr(in_: &DubinsIntermediateResults) -> Result<[f64; 3], DubinsError> {
+fn rlr(in_: &DubinsIntermediateResults) -> Result<[f32; 3], DubinsError> {
     let tmp0 = (6. - in_.d_sq + 2. * in_.c_ab + 2. * in_.d * (in_.sa - in_.sb)) / 8.;
     let phi = (in_.ca - in_.cb).atan2(in_.d - in_.sa + in_.sb);
 
@@ -395,7 +395,7 @@ fn rlr(in_: &DubinsIntermediateResults) -> Result<[f64; 3], DubinsError> {
     Err(DubinsError::NoPath)
 }
 
-fn lrl(in_: &DubinsIntermediateResults) -> Result<[f64; 3], DubinsError> {
+fn lrl(in_: &DubinsIntermediateResults) -> Result<[f32; 3], DubinsError> {
     let tmp0 = (6. - in_.d_sq + 2. * in_.c_ab + 2. * in_.d * (in_.sb - in_.sa)) / 8.;
     let phi = (in_.ca - in_.cb).atan2(in_.d + in_.sa - in_.sb);
 
@@ -409,7 +409,7 @@ fn lrl(in_: &DubinsIntermediateResults) -> Result<[f64; 3], DubinsError> {
     Err(DubinsError::NoPath)
 }
 
-fn word(in_: &DubinsIntermediateResults, path_type: DubinsPathType) -> Result<[f64; 3], DubinsError> {
+fn word(in_: &DubinsIntermediateResults, path_type: DubinsPathType) -> Result<[f32; 3], DubinsError> {
     match path_type {
         DubinsPathType::LSL => lsl(in_),
         DubinsPathType::RSL => rsl(in_),

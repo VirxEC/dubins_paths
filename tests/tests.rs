@@ -3,7 +3,7 @@ use std::{panic::panic_any, time::Instant};
 extern crate dubins_paths;
 
 use dubins_paths::{path_sample_many, shortest_path, shortest_path_in, DubinsPathType};
-pub const MAX_TURN_RADIUS: f64 = 1. / 0.00076;
+pub const MAX_TURN_RADIUS: f32 = 1. / 0.00076;
 
 #[test]
 fn fast_shortest_csc_path() {
