@@ -256,7 +256,11 @@ fn segment(t: f32, qi: [f32; 3], type_: SegmentType) -> [f32; 3] {
     qt
 }
 
-fn path_sample(path: &DubinsPath, t: f32) -> Result<[f32; 3], DubinsError> {
+/// Sample a path
+///
+/// * `path`: The path the sample
+/// * `t`: The travel distance at which to sample the path
+pub fn path_sample(path: &DubinsPath, t: f32) -> Result<[f32; 3], DubinsError> {
     /* tprime is the normalised variant of the parameter t */
     let tprime = t / path.rho;
     let types = DIRDATA[path.type_.to()];
@@ -291,9 +295,10 @@ fn path_sample(path: &DubinsPath, t: f32) -> Result<[f32; 3], DubinsError> {
     Ok(q)
 }
 
-/// Get a vec of all the points along the path
+/// Get a vec of all the points along a path
 ///
-/// All points are equally spaced out
+/// * `path`: The path the sample
+/// * `step_distance`: The distance between each point
 pub fn path_sample_many(path: &DubinsPath, step_distance: f32) -> Result<Vec<[f32; 3]>, DubinsError> {
     let length = path_length(path);
 
