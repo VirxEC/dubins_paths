@@ -1,7 +1,5 @@
 use std::f32::{consts::PI, INFINITY};
 
-const EPSILON: f32 = 10e-10;
-
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DubinsPathType {
     /// A "Left Straight Left" Dubin's path
@@ -258,7 +256,7 @@ fn segment(t: f32, qi: [f32; 3], type_: SegmentType) -> [f32; 3] {
 
 /// Sample a path
 ///
-/// * `path`: The path the sample
+/// * `path`: The path to sample
 /// * `t`: The travel distance at which to sample the path
 pub fn path_sample(path: &DubinsPath, t: f32) -> Result<[f32; 3], DubinsError> {
     /* tprime is the normalised variant of the parameter t */
@@ -297,7 +295,7 @@ pub fn path_sample(path: &DubinsPath, t: f32) -> Result<[f32; 3], DubinsError> {
 
 /// Get a vec of all the points along a path
 ///
-/// * `path`: The path the sample
+/// * `path`: The path to sample
 /// * `step_distance`: The distance between each point
 pub fn path_sample_many(path: &DubinsPath, step_distance: f32) -> Result<Vec<[f32; 3]>, DubinsError> {
     let length = path_length(path);
@@ -318,7 +316,7 @@ pub fn path_sample_many(path: &DubinsPath, step_distance: f32) -> Result<Vec<[f3
 
 /// Get the endpoint of the path
 pub fn path_endpoint(path: &DubinsPath) -> Result<[f32; 3], DubinsError> {
-    path_sample(path, path_length(path) - EPSILON)
+    path_sample(path, path_length(path) - f32::EPSILON)
 }
 
 // int extract_subpath( DubinsPath* path, double t, DubinsPath* newpath )
