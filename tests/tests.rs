@@ -16,7 +16,7 @@ fn fast_shortest_csc_path() {
         let q0 = [2000., 2000., 0.];
         let q1 = [0., 0., 3.14];
 
-        if let Err(err) = shortest_path_in(q0, q1, MAX_TURN_RADIUS, &DubinsPathType::csc()) {
+        if let Err(err) = shortest_path_in(q0, q1, MAX_TURN_RADIUS, &DubinsPathType::CCC) {
             panic_any(err);
         }
 
@@ -41,7 +41,7 @@ fn fast_shortest_ccc_path() {
         let q0 = [2000., 2000., 0.];
         let q1 = [0., 0., 3.14];
 
-        if let Err(err) = shortest_path_in(q0, q1, MAX_TURN_RADIUS, &DubinsPathType::csc()) {
+        if let Err(err) = shortest_path_in(q0, q1, MAX_TURN_RADIUS, &DubinsPathType::CSC) {
             panic_any(err);
         }
 

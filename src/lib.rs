@@ -19,6 +19,13 @@ pub enum DubinsPathType {
 }
 
 impl DubinsPathType {
+    /// All of the "Turn Straight Turn" path types
+    pub const CSC: [DubinsPathType; 4] = [Self::LSL, Self::LSR, Self::RSL, Self::RSR];
+    /// All of the "Turn Turn Turn" path types
+    pub const CCC: [DubinsPathType; 2] = [Self::RLR, Self::LRL];
+    /// All of the path types
+    pub const ALL: [DubinsPathType; 6] = [Self::LSL, Self::LSR, Self::RSL, Self::RSR, Self::RLR, Self::LRL];
+
     /// Convert from usize to a path type
     pub fn from(value: usize) -> Self {
         match value {
@@ -42,21 +49,6 @@ impl DubinsPathType {
             Self::RLR => 4,
             Self::LRL => 5,
         }
-    }
-
-    /// Get all of the "Turn Straight Turn" path types
-    pub fn csc() -> [DubinsPathType; 4] {
-        [Self::LSL, Self::LSR, Self::RSL, Self::RSR]
-    }
-
-    /// Get all of the "Turn Turn Turn" path types
-    pub fn ccc() -> [DubinsPathType; 2] {
-        [Self::RLR, Self::LRL]
-    }
-
-    /// Get all of the path types
-    pub fn all() -> [DubinsPathType; 6] {
-        [Self::LSL, Self::LSR, Self::RSL, Self::RSR, Self::RLR, Self::LRL]
     }
 }
 
@@ -167,7 +159,7 @@ pub fn shortest_path_in(q0: [f64; 3], q1: [f64; 3], rho: f64, types: &[DubinsPat
 
 /// Find the shortest path out of the 6 Dubin's paths
 pub fn shortest_path(q0: [f64; 3], q1: [f64; 3], rho: f64) -> Result<DubinsPath, DubinsError> {
-    shortest_path_in(q0, q1, rho, &DubinsPathType::all())
+    shortest_path_in(q0, q1, rho, &DubinsPathType::ALL)
 }
 
 /// Calculate a Dubin's path
