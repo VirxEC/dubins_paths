@@ -128,6 +128,20 @@ fn mod2pi(theta: f32) -> f32 {
 }
 
 /// Find the shortest path out of the specified Dubin's paths
+/// 
+/// * `q0`: Three f32's in the format `[x, y, theta]`
+///
+/// Represents starting location and orientation of the car.
+///
+/// * `q1`: Three f32's in the format `[x, y, theta]`
+///
+/// Represents ending location and orientation of the car.
+///
+/// * `rho`: The turning radius of the car.
+///
+/// Can be can be calculated by taking the forward velocity of the car and dividing it by the car's angular velocity.
+///
+/// * `types`: A reference to a slice that contains the path types to be compared.
 pub fn shortest_path_in(q0: [f32; 3], q1: [f32; 3], rho: f32, types: &[DubinsPathType]) -> Result<DubinsPath, DubinsError> {
     let mut best_cost = INFINITY;
     let mut best_params = [0.; 3];
@@ -158,11 +172,38 @@ pub fn shortest_path_in(q0: [f32; 3], q1: [f32; 3], rho: f32, types: &[DubinsPat
 }
 
 /// Find the shortest path out of the 6 Dubin's paths
+/// 
+/// * `q0`: Three f32's in the format `[x, y, theta]`
+///
+/// Represents starting location and orientation of the car.
+///
+/// * `q1`: Three f32's in the format `[x, y, theta]`
+///
+/// Represents ending location and orientation of the car.
+///
+/// * `rho`: The turning radius of the car.
+///
+/// Can be can be calculated by taking the forward velocity of the car and dividing it by the car's angular velocity.
 pub fn shortest_path(q0: [f32; 3], q1: [f32; 3], rho: f32) -> Result<DubinsPath, DubinsError> {
     shortest_path_in(q0, q1, rho, &DubinsPathType::ALL)
 }
 
 /// Calculate a Dubin's path
+/// Find the shortest path out of the specified Dubin's paths
+/// 
+/// * `q0`: Three f32's in the format `[x, y, theta]`
+///
+/// Represents starting location and orientation of the car.
+///
+/// * `q1`: Three f32's in the format `[x, y, theta]`
+///
+/// Represents ending location and orientation of the car.
+///
+/// * `rho`: The turning radius of the car.
+///
+/// Can be can be calculated by taking the forward velocity of the car and dividing it by the car's angular velocity.
+///
+/// * `path_type`: The Dubins path type that's to be calculated.
 pub fn path(q0: [f32; 3], q1: [f32; 3], rho: f32, path_type: DubinsPathType) -> Result<DubinsPath, DubinsError> {
     let in_ = intermediate_results(q0, q1, rho)?;
     let params = word(&in_, path_type)?;
@@ -175,6 +216,7 @@ pub fn path(q0: [f32; 3], q1: [f32; 3], rho: f32, path_type: DubinsPathType) -> 
     })
 }
 
+/// Calculate the total distance of any given path.
 pub fn path_length(path: &DubinsPath) -> f32 {
     (path.param[0] + path.param[1] + path.param[2]) * path.rho
 }
