@@ -88,7 +88,7 @@ enum SegmentType {
 const DIRDATA: [[SegmentType; 3]; 6] = [[SegmentType::L, SegmentType::S, SegmentType::L], [SegmentType::L, SegmentType::S, SegmentType::R], [SegmentType::R, SegmentType::S, SegmentType::L], [SegmentType::R, SegmentType::S, SegmentType::R], [SegmentType::R, SegmentType::L, SegmentType::R], [SegmentType::L, SegmentType::R, SegmentType::L]];
 
 #[derive(Clone, Copy, Debug)]
-struct DubinsIntermediateResults {
+pub struct DubinsIntermediateResults {
     alpha: f32,
     beta: f32,
     d: f32,
@@ -201,7 +201,7 @@ pub fn shortest_path(q0: [f32; 3], q1: [f32; 3], rho: f32) -> Result<DubinsPath,
 ///
 /// Can be can be calculated by taking the forward velocity of the car and dividing it by the car's angular velocity.
 ///
-/// * `path_type`: The Dubins path type that's to be calculated.
+/// * `path_type`: The Dubin's path type that's to be calculated.
 pub fn path(q0: [f32; 3], q1: [f32; 3], rho: f32, path_type: DubinsPathType) -> Result<DubinsPath, DubinsError> {
     let in_ = intermediate_results(q0, q1, rho)?;
     let params = word(&in_, path_type)?;
@@ -315,6 +315,8 @@ pub fn path_sample_many(path: &DubinsPath, step_distance: f32) -> Result<Vec<[f3
 }
 
 /// Get the endpoint of the path
+///
+/// * `path`: The path to get the endpoint of
 pub fn path_endpoint(path: &DubinsPath) -> Result<[f32; 3], DubinsError> {
     path_sample(path, path_length(path) - f32::EPSILON)
 }
@@ -343,7 +345,19 @@ pub fn path_endpoint(path: &DubinsPath) -> Result<[f32; 3], DubinsError> {
 //     return 0;
 // }
 
-fn intermediate_results(q0: [f32; 3], q1: [f32; 3], rho: f32) -> Result<DubinsIntermediateResults, DubinsError> {
+
+/// Pre-calculated values that are required by all of Dubin's Paths
+/// 
+/// * `q0`: Three f32's in the format `[x, y, theta]`
+///
+/// Represents starting location and orientation of the car.
+///
+/// * `q1`: Three f32's in the format `[x, y, theta]`
+///
+/// Represents ending location and orientation of the car.
+///
+/// * `rho`: The turning radius of the car.
+pub fn intermediate_results(q0: [f32; 3], q1: [f32; 3], rho: f32) -> Result<DubinsIntermediateResults, DubinsError> {
     if rho <= 0.0 {
         return Err(DubinsError::BadRho);
     }
@@ -454,7 +468,10 @@ fn lrl(in_: &DubinsIntermediateResults) -> Result<[f32; 3], DubinsError> {
     Err(DubinsError::NoPath)
 }
 
-fn word(in_: &DubinsIntermediateResults, path_type: DubinsPathType) -> Result<[f32; 3], DubinsError> {
+/// Calculate a specific Dubin's Path
+/// 
+/// * `path_type`: The Dubin's path type that's to be calculated.
+pub fn word(in_: &DubinsIntermediateResults, path_type: DubinsPathType) -> Result<[f32; 3], DubinsError> {
     match path_type {
         DubinsPathType::LSL => lsl(in_),
         DubinsPathType::RSL => rsl(in_),
