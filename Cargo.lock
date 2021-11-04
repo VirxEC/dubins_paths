@@ -4,4 +4,4 @@ version = 3
 
 [[package]]
 name = "dubins_paths"
-version = "0.2.5"
+version = "1.0.0"

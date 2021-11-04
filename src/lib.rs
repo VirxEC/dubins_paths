@@ -1,5 +1,6 @@
 use std::f32::{consts::PI, INFINITY};
 
+/// All the possible path types
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DubinsPathType {
     /// A "Left Straight Left" Dubin's path
@@ -50,18 +51,20 @@ impl DubinsPathType {
     }
 }
 
+/// All the basic information about Dubin's Paths
 #[derive(Clone, Copy, Debug)]
 pub struct DubinsPath {
-    /* the initial configuration */
+    /// The initial location (x, y, theta)
     pub qi: [f32; 3],
-    /* the lengths of the three segments */
+    /// The normalized lengths of the three segments
     pub param: [f32; 3],
-    /* model forward velocity / model angular velocity */
+    /// The model's turn radius (forward velocity / angular velocity)
     pub rho: f32,
-    /* the path type described */
+    /// The type of the path
     pub type_: DubinsPathType,
 }
 
+/// All the possible errors that may occur when generating the path
 #[derive(Clone, Copy, Debug)]
 pub enum DubinsError {
     /// Colocated configurations
@@ -74,6 +77,7 @@ pub enum DubinsError {
     NoPath,
 }
 
+/// The three segment types in a Dubin's Path
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum SegmentType {
     /// Left
@@ -87,17 +91,18 @@ enum SegmentType {
 /// The segment types for each of the path types
 const DIRDATA: [[SegmentType; 3]; 6] = [[SegmentType::L, SegmentType::S, SegmentType::L], [SegmentType::L, SegmentType::S, SegmentType::R], [SegmentType::R, SegmentType::S, SegmentType::L], [SegmentType::R, SegmentType::S, SegmentType::R], [SegmentType::R, SegmentType::L, SegmentType::R], [SegmentType::L, SegmentType::R, SegmentType::L]];
 
+/// The pre-calculated information that applies to every path type
 #[derive(Clone, Copy, Debug)]
 pub struct DubinsIntermediateResults {
-    alpha: f32,
-    beta: f32,
-    d: f32,
-    sa: f32,
-    sb: f32,
-    ca: f32,
-    cb: f32,
-    c_ab: f32,
-    d_sq: f32,
+    pub alpha: f32,
+    pub beta: f32,
+    pub d: f32,
+    pub sa: f32,
+    pub sb: f32,
+    pub ca: f32,
+    pub cb: f32,
+    pub c_ab: f32,
+    pub d_sq: f32,
 }
 
 impl Default for DubinsIntermediateResults {
@@ -219,23 +224,12 @@ pub fn path_length(path: &DubinsPath) -> f32 {
     (path.param[0] + path.param[1] + path.param[2]) * path.rho
 }
 
-// double segment_length( DubinsPath* path, int i )
-// {
-//     if( (i < 0) || (i > 2) )
-//     {
-//         return INFINITY;
-//     }
-//     return path->param[i] * path->rho;
-// }
-
-// double segment_length_normalized( DubinsPath* path, int i )
-// {
-//     if( (i < 0) || (i > 2) )
-//     {
-//         return INFINITY;
-//     }
-//     return path->param[i];
-// }
+/// Calculate the total distance of the path segment
+/// 
+/// `i`: Index of the segment to get the length of - [0, 2]
+pub fn segment_length(path: &DubinsPath, i: usize) -> f32 {
+    path.param[i] * path.rho
+}
 
 fn segment(t: f32, qi: [f32; 3], type_: SegmentType) -> [f32; 3] {
     let st = qi[2].sin();
@@ -344,7 +338,6 @@ pub fn path_endpoint(path: &DubinsPath) -> Result<[f32; 3], DubinsError> {
 //     newpath->param[2] = fmin( path->param[2], tprime - newpath->param[0] - newpath->param[1]);
 //     return 0;
 // }
-
 
 /// Pre-calculated values that are required by all of Dubin's Paths
 /// 
