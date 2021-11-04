@@ -315,29 +315,27 @@ pub fn path_endpoint(path: &DubinsPath) -> Result<[f32; 3], DubinsError> {
     path_sample(path, path_length(path) - f32::EPSILON)
 }
 
-// int extract_subpath( DubinsPath* path, double t, DubinsPath* newpath )
-// {
-//     /* calculate the true parameter */
-//     double tprime = t / path->rho;
+/// Extract a subpath from a path
+///
+/// * `path`: The path take the subpath from
+/// * `t`: The length along the path to end the subpath
+pub fn extract_subpath(path: &DubinsPath, t: f32) -> Result<DubinsPath, DubinsError> {
+    if t < 0.|| t > path_length(path) {
+        return Err(DubinsError::Param);
+    }
 
-//     if((t < 0) || (t > path_length(path)))
-//     {
-//         return EDUBPARAM;
-//     }
+    let mut new_path = path.clone();
 
-//     /* copy most of the data */
-//     newpath->qi[0] = path->qi[0];
-//     newpath->qi[1] = path->qi[1];
-//     newpath->qi[2] = path->qi[2];
-//     newpath->rho   = path->rho;
-//     newpath->type  = path->type;
+    // calculate the true parameter
+    let tprime = t / path.rho;
 
-//     /* fix the parameters */
-//     newpath->param[0] = fmin( path->param[0], tprime );
-//     newpath->param[1] = fmin( path->param[1], tprime - newpath->param[0]);
-//     newpath->param[2] = fmin( path->param[2], tprime - newpath->param[0] - newpath->param[1]);
-//     return 0;
-// }
+    // fix the parameters
+    new_path.param[0] = path.param[0].min(tprime);
+    new_path.param[1] = path.param[1].min(tprime - new_path.param[0]);
+    new_path.param[2] = path.param[2].min(tprime - new_path.param[0] - new_path.param[1]);
+    
+    Ok(new_path)
+}
 
 /// Pre-calculated values that are required by all of Dubin's Paths
 /// 
@@ -423,6 +421,7 @@ fn lsr(in_: &DubinsIntermediateResults) -> Result<[f32; 3], DubinsError> {
 
 fn rsl(in_: &DubinsIntermediateResults) -> Result<[f32; 3], DubinsError> {
     let p_sq = -2. + in_.d_sq + (2. * in_.c_ab) - (2. * in_.d * (in_.sa + in_.sb));
+
     if p_sq >= 0. {
         let p = p_sq.sqrt();
         let tmp0 = (in_.ca + in_.cb).atan2(in_.d - in_.sa - in_.sb) - (2_f32).atan2(p);
