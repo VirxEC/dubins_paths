@@ -231,7 +231,7 @@ pub fn segment_length(path: &DubinsPath, i: usize) -> f32 {
     path.param[i] * path.rho
 }
 
-fn segment(t: f32, qi: [f32; 3], type_: SegmentType) -> [f32; 3] {
+pub fn segment(t: f32, qi: [f32; 3], type_: SegmentType) -> [f32; 3] {
     let st = qi[2].sin();
     let ct = qi[2].cos();
 
