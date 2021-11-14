@@ -122,11 +122,12 @@ impl Default for DubinsIntermediateResults {
 }
 
 /// Floating point modulus suitable for rings
-fn fmodr(x: f32, y: f32) -> f32 {
+pub fn fmodr(x: f32, y: f32) -> f32 {
     x - y * (x / y).floor()
 }
 
-fn mod2pi(theta: f32) -> f32 {
+/// Equivalent to fmodr(theta, 2. * PI)
+pub fn mod2pi(theta: f32) -> f32 {
     fmodr(theta, 2. * PI)
 }
 
