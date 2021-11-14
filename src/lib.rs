@@ -79,7 +79,7 @@ pub enum DubinsError {
 
 /// The three segment types in a Dubin's Path
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum SegmentType {
+pub enum SegmentType {
     /// Left
     L,
     /// Straight
@@ -89,7 +89,7 @@ enum SegmentType {
 }
 
 /// The segment types for each of the path types
-const DIRDATA: [[SegmentType; 3]; 6] = [[SegmentType::L, SegmentType::S, SegmentType::L], [SegmentType::L, SegmentType::S, SegmentType::R], [SegmentType::R, SegmentType::S, SegmentType::L], [SegmentType::R, SegmentType::S, SegmentType::R], [SegmentType::R, SegmentType::L, SegmentType::R], [SegmentType::L, SegmentType::R, SegmentType::L]];
+pub const DIRDATA: [[SegmentType; 3]; 6] = [[SegmentType::L, SegmentType::S, SegmentType::L], [SegmentType::L, SegmentType::S, SegmentType::R], [SegmentType::R, SegmentType::S, SegmentType::L], [SegmentType::R, SegmentType::S, SegmentType::R], [SegmentType::R, SegmentType::L, SegmentType::R], [SegmentType::L, SegmentType::R, SegmentType::L]];
 
 /// The pre-calculated information that applies to every path type
 #[derive(Clone, Copy, Debug)]
