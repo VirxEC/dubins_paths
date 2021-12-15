@@ -39,7 +39,7 @@ impl DubinsPathType {
     }
 
     /// Convert from path type to usize
-    pub fn to(self: &Self) -> usize {
+    pub fn to(&self) -> usize {
         match self {
             Self::LSL => 0,
             Self::LSR => 1,
@@ -65,7 +65,7 @@ pub struct DubinsPath {
 }
 
 /// All the possible errors that may occur when generating the path
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DubinsError {
     /// Colocated configurations
     CoConfigs,
@@ -92,7 +92,7 @@ pub enum SegmentType {
 pub const DIRDATA: [[SegmentType; 3]; 6] = [[SegmentType::L, SegmentType::S, SegmentType::L], [SegmentType::L, SegmentType::S, SegmentType::R], [SegmentType::R, SegmentType::S, SegmentType::L], [SegmentType::R, SegmentType::S, SegmentType::R], [SegmentType::R, SegmentType::L, SegmentType::R], [SegmentType::L, SegmentType::R, SegmentType::L]];
 
 /// The pre-calculated information that applies to every path type
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct DubinsIntermediateResults {
     pub alpha: f32,
     pub beta: f32,
@@ -103,22 +103,6 @@ pub struct DubinsIntermediateResults {
     pub cb: f32,
     pub c_ab: f32,
     pub d_sq: f32,
-}
-
-impl Default for DubinsIntermediateResults {
-    fn default() -> Self {
-        Self {
-            alpha: 0.,
-            beta: 0.,
-            d: 0.,
-            sa: 0.,
-            sb: 0.,
-            ca: 0.,
-            cb: 0.,
-            c_ab: 0.,
-            d_sq: 0.,
-        }
-    }
 }
 
 /// Floating point modulus suitable for rings
@@ -132,7 +116,7 @@ pub fn mod2pi(theta: f32) -> f32 {
 }
 
 /// Find the shortest path out of the specified Dubin's paths
-/// 
+///
 /// * `q0`: Three f32's in the format `[x, y, theta]`
 ///
 /// Represents starting location and orientation of the car.
@@ -176,7 +160,7 @@ pub fn shortest_path_in(q0: [f32; 3], q1: [f32; 3], rho: f32, types: &[DubinsPat
 }
 
 /// Find the shortest path out of the 6 Dubin's paths
-/// 
+///
 /// * `q0`: Three f32's in the format `[x, y, theta]`
 ///
 /// Represents starting location and orientation of the car.
@@ -194,7 +178,7 @@ pub fn shortest_path(q0: [f32; 3], q1: [f32; 3], rho: f32) -> Result<DubinsPath,
 
 /// Calculate a Dubin's path
 /// Find the shortest path out of the specified Dubin's paths
-/// 
+///
 /// * `q0`: Three f32's in the format `[x, y, theta]`
 ///
 /// Represents starting location and orientation of the car.
@@ -226,7 +210,7 @@ pub fn path_length(path: &DubinsPath) -> f32 {
 }
 
 /// Calculate the total distance of the path segment
-/// 
+///
 /// `i`: Index of the segment to get the length of - [0, 2]
 pub fn segment_length(path: &DubinsPath, i: usize) -> f32 {
     path.param[i] * path.rho
@@ -321,25 +305,29 @@ pub fn path_endpoint(path: &DubinsPath) -> Result<[f32; 3], DubinsError> {
 /// * `path`: The path take the subpath from
 /// * `t`: The length along the path to end the subpath
 pub fn extract_subpath(path: &DubinsPath, t: f32) -> Result<DubinsPath, DubinsError> {
-    if t < 0.|| t > path_length(path) {
+    if t < 0. || t > path_length(path) {
         return Err(DubinsError::Param);
     }
-
-    let mut new_path = path.clone();
 
     // calculate the true parameter
     let tprime = t / path.rho;
 
     // fix the parameters
-    new_path.param[0] = path.param[0].min(tprime);
-    new_path.param[1] = path.param[1].min(tprime - new_path.param[0]);
-    new_path.param[2] = path.param[2].min(tprime - new_path.param[0] - new_path.param[1]);
-    
-    Ok(new_path)
+    let param0 = path.param[0].min(tprime);
+    let param1 = path.param[1].min(tprime - param0);
+    let param2 = path.param[2].min(tprime - param0 - param1);
+
+    // copy most of the data
+    Ok(DubinsPath {
+        qi: path.qi,
+        param: [param0, param1, param2],
+        rho: path.rho,
+        type_: path.type_,
+    })
 }
 
 /// Pre-calculated values that are required by all of Dubin's Paths
-/// 
+///
 /// * `q0`: Three f32's in the format `[x, y, theta]`
 ///
 /// Represents starting location and orientation of the car.
@@ -462,7 +450,7 @@ fn lrl(in_: &DubinsIntermediateResults) -> Result<[f32; 3], DubinsError> {
 }
 
 /// Calculate a specific Dubin's Path
-/// 
+///
 /// * `path_type`: The Dubin's path type that's to be calculated.
 pub fn word(in_: &DubinsIntermediateResults, path_type: DubinsPathType) -> Result<[f32; 3], DubinsError> {
     match path_type {
