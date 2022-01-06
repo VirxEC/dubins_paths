@@ -2,7 +2,7 @@ use std::{f32::consts::PI, panic::panic_any, time::Instant};
 
 extern crate dubins_paths;
 
-use dubins_paths::{path_sample_many, shortest_path, shortest_path_in, DubinsPathType};
+use dubins_paths::{DubinsPath, DubinsPathType};
 pub const MAX_TURN_RADIUS: f32 = 1. / 0.00076;
 
 #[test]
@@ -16,7 +16,7 @@ fn fast_shortest_csc_path() {
         let q0 = [2000., 2000., 0.];
         let q1 = [0., 0., PI];
 
-        if let Err(err) = shortest_path_in(q0, q1, MAX_TURN_RADIUS, &DubinsPathType::CCC) {
+        if let Err(err) = DubinsPath::shortest_in(q0, q1, MAX_TURN_RADIUS, &DubinsPathType::CCC) {
             panic_any(err);
         }
 
@@ -41,7 +41,7 @@ fn fast_shortest_ccc_path() {
         let q0 = [2000., 2000., 0.];
         let q1 = [0., 0., PI];
 
-        if let Err(err) = shortest_path_in(q0, q1, MAX_TURN_RADIUS, &DubinsPathType::CSC) {
+        if let Err(err) = DubinsPath::shortest_in(q0, q1, MAX_TURN_RADIUS, &DubinsPathType::CSC) {
             panic_any(err);
         }
 
@@ -66,7 +66,7 @@ fn fast_shortest_path() {
         let q0 = [2000., 2000., 0.];
         let q1 = [0., 0., PI];
 
-        if let Err(err) = shortest_path(q0, q1, MAX_TURN_RADIUS) {
+        if let Err(err) = DubinsPath::shortest_from(q0, q1, MAX_TURN_RADIUS) {
             panic_any(err);
         }
 
@@ -88,7 +88,7 @@ fn fast_many_sample() {
     let q0 = [2000., 2000., 0.];
     let q1 = [0., 0., PI];
 
-    let path = match shortest_path(q0, q1, MAX_TURN_RADIUS) {
+    let path = match DubinsPath::shortest_from(q0, q1, MAX_TURN_RADIUS) {
         Ok(p) => p,
         Err(err) => panic_any(err),
     };
@@ -96,7 +96,7 @@ fn fast_many_sample() {
     for _ in 0..runs {
         let start = Instant::now();
 
-        if let Err(err) = path_sample_many(&path, 20.) {
+        if let Err(err) = path.sample_many(20.) {
             panic_any(err);
         }
 
