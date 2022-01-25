@@ -96,9 +96,7 @@ fn fast_many_sample() {
     for _ in 0..runs {
         let start = Instant::now();
 
-        if let Err(err) = path.sample_many(20.) {
-            panic_any(err);
-        }
+        path.sample_many(20.);
 
         times.push(start.elapsed().as_secs_f32());
     }
