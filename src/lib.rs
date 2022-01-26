@@ -421,7 +421,7 @@ impl DubinsPath {
     /// Extract a subpath from a path
     ///
     /// * `path`: The path take the subpath from
-    /// * `t`: The length along the path to start the subpath, must be less than the total length of the path
+    /// * `t`: The length along the path to end the subpath
     pub fn extract_subpath(&self, t: f32) -> DubinsPath {
         // calculate the true parameter
         let tprime = t / self.rho;
