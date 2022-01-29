@@ -393,8 +393,8 @@ impl DubinsPath {
 
         // scale the target configuration, translate back to the original starting point
         [
-            q[1] * self.rho + self.qi[1],
             q[0] * self.rho + self.qi[0],
+            q[1] * self.rho + self.qi[1],
             mod2pi(q[2]),
         ]
     }
