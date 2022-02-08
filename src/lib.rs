@@ -57,9 +57,12 @@ pub enum DubinsError {
 }
 
 /// A type that allows the function to return either
-/// 
+///
 /// Ok(T) or Err(DubinsError)
 pub type DubinsResult<T> = Result<T, DubinsError>;
+
+/// The car's \[x, y, theta] position
+pub type DubinsPos = [f32; 3];
 
 /// The pre-calculated information that applies to every path type
 #[derive(Clone, Copy, Debug, Default)]
@@ -78,16 +81,10 @@ pub struct DubinsIntermediateResults {
 impl DubinsIntermediateResults {
     /// Pre-calculated values that are required by all of Dubin's Paths
     ///
-    /// * `q0`: Three f32's in the format `[x, y, theta]`
-    ///
-    /// Represents starting location and orientation of the car.
-    ///
-    /// * `q1`: Three f32's in the format `[x, y, theta]`
-    ///
-    /// Represents ending location and orientation of the car.
-    ///
+    /// * `q0`: The starting location and orientation of the car.
+    /// * `q1`: The ending location and orientation of the car.
     /// * `rho`: The turning radius of the car. Must be greater than 0.
-    pub fn from(q0: [f32; 3], q1: [f32; 3], rho: f32) -> Self {
+    pub fn from(q0: DubinsPos, q1: DubinsPos, rho: f32) -> Self {
         let dx = q1[0] - q0[0];
         let dy = q1[1] - q0[1];
         let d = (dx * dx + dy * dy).sqrt() / rho;
@@ -115,90 +112,90 @@ impl DubinsIntermediateResults {
         }
     }
 
-    fn lsl(&self) -> DubinsResult<[f32; 3]> {
+    fn lsl(&self) -> DubinsResult<DubinsPos> {
         let p_sq = 2. + self.d_sq - (2. * self.c_ab) + (2. * self.d * (self.sa - self.sb));
-    
+
         if p_sq >= 0. {
             let tmp0 = self.d + self.sa - self.sb;
             let tmp1 = (self.cb - self.ca).atan2(tmp0);
-    
+
             Ok([mod2pi(tmp1 - self.alpha), p_sq.sqrt(), mod2pi(self.beta - tmp1)])
         } else {
             Err(DubinsError::NoPath)
         }
     }
-    
-    fn rsr(&self) -> DubinsResult<[f32; 3]> {
+
+    fn rsr(&self) -> DubinsResult<DubinsPos> {
         let p_sq = 2. + self.d_sq - (2. * self.c_ab) + (2. * self.d * (self.sb - self.sa));
-    
+
         if p_sq >= 0. {
             let tmp0 = self.d - self.sa + self.sb;
             let tmp1 = (self.ca - self.cb).atan2(tmp0);
-    
+
             Ok([mod2pi(self.alpha - tmp1), p_sq.sqrt(), mod2pi(tmp1 - self.beta)])
         } else {
             Err(DubinsError::NoPath)
         }
     }
-    
-    fn lsr(&self) -> DubinsResult<[f32; 3]> {
+
+    fn lsr(&self) -> DubinsResult<DubinsPos> {
         let p_sq = -2. + (self.d_sq) + (2. * self.c_ab) + (2. * self.d * (self.sa + self.sb));
-    
+
         if p_sq >= 0. {
             let p = p_sq.sqrt();
             let tmp0 = (-self.ca - self.cb).atan2(self.d + self.sa + self.sb) - (-2_f32).atan2(p);
-    
+
             Ok([mod2pi(tmp0 - self.alpha), p, mod2pi(tmp0 - mod2pi(self.beta))])
         } else {
             Err(DubinsError::NoPath)
         }
     }
-    
-    fn rsl(&self) -> DubinsResult<[f32; 3]> {
+
+    fn rsl(&self) -> DubinsResult<DubinsPos> {
         let p_sq = -2. + self.d_sq + (2. * self.c_ab) - (2. * self.d * (self.sa + self.sb));
-    
+
         if p_sq >= 0. {
             let p = p_sq.sqrt();
             let tmp0 = (self.ca + self.cb).atan2(self.d - self.sa - self.sb) - (2_f32).atan2(p);
-    
+
             Ok([mod2pi(self.alpha - tmp0), p, mod2pi(self.beta - tmp0)])
         } else {
             Err(DubinsError::NoPath)
         }
     }
-    
-    fn rlr(&self) -> DubinsResult<[f32; 3]> {
+
+    fn rlr(&self) -> DubinsResult<DubinsPos> {
         let tmp0 = (6. - self.d_sq + 2. * self.c_ab + 2. * self.d * (self.sa - self.sb)) / 8.;
         let phi = (self.ca - self.cb).atan2(self.d - self.sa + self.sb);
-    
+
         if tmp0.abs() <= 1. {
             let p = mod2pi((2. * PI) - tmp0.acos());
             let t = mod2pi(self.alpha - phi + mod2pi(p / 2.));
-    
+
             Ok([t, p, mod2pi(self.alpha - self.beta - t + mod2pi(p))])
         } else {
             Err(DubinsError::NoPath)
         }
     }
-    
-    fn lrl(&self) -> DubinsResult<[f32; 3]> {
+
+    fn lrl(&self) -> DubinsResult<DubinsPos> {
         let tmp0 = (6. - self.d_sq + 2. * self.c_ab + 2. * self.d * (self.sb - self.sa)) / 8.;
         let phi = (self.ca - self.cb).atan2(self.d + self.sa - self.sb);
-    
+
         if tmp0.abs() <= 1. {
             let p = mod2pi(2. * PI - tmp0.acos());
             let t = mod2pi(-self.alpha - phi + p / 2.);
-    
+
             Ok([t, p, mod2pi(mod2pi(self.beta) - self.alpha - t + mod2pi(p))])
         } else {
             Err(DubinsError::NoPath)
         }
     }
-    
+
     /// Calculate a specific Dubin's Path
     ///
     /// * `path_type`: The Dubin's path type that's to be calculated.
-    pub fn word(&self, path_type: DubinsPathType) -> DubinsResult<[f32; 3]> {
+    pub fn word(&self, path_type: DubinsPathType) -> DubinsResult<DubinsPos> {
         match path_type {
             DubinsPathType::LSL => self.lsl(),
             DubinsPathType::RSL => self.rsl(),
@@ -224,9 +221,9 @@ pub fn mod2pi(theta: f32) -> f32 {
 #[derive(Clone, Copy, Debug)]
 pub struct DubinsPath {
     /// The initial location (x, y, theta)
-    pub qi: [f32; 3],
+    pub qi: DubinsPos,
     /// The normalized lengths of the three segments
-    pub param: [f32; 3],
+    pub param: DubinsPos,
     /// The model's turn radius (forward velocity / angular velocity)
     pub rho: f32,
     /// The type of the path
@@ -236,21 +233,11 @@ pub struct DubinsPath {
 impl DubinsPath {
     /// Find the shortest path out of the specified path types
     ///
-    /// * `q0`: Three f32's in the format `[x, y, theta]`
-    ///
-    /// Represents starting location and orientation of the car.
-    ///
-    /// * `q1`: Three f32's in the format `[x, y, theta]`
-    ///
-    /// Represents ending location and orientation of the car.
-    ///
-    /// * `rho`: The turning radius of the car.
-    ///
-    /// Can be can be calculated by taking the forward velocity of the car and dividing it by the car's angular velocity.
-    /// Must be positive.
-    ///
+    /// * `q0`: The starting location and orientation of the car.
+    /// * `q1`: The ending location and orientation of the car.
+    /// * `rho`: The turning radius of the car. Must be greater than 0.
     /// * `types`: A reference to a slice that contains the path types to be compared.
-    pub fn shortest_in(q0: [f32; 3], q1: [f32; 3], rho: f32, types: &[DubinsPathType]) -> DubinsResult<Self> {
+    pub fn shortest_in(q0: DubinsPos, q1: DubinsPos, rho: f32, types: &[DubinsPathType]) -> DubinsResult<Self> {
         let mut best_cost = INFINITY;
         let mut best_params = [0.; 3];
         let mut best_type = None;
@@ -281,42 +268,23 @@ impl DubinsPath {
 
     /// Find the shortest path out of the 6 path types
     ///
-    /// * `q0`: Three f32's in the format `[x, y, theta]`
-    ///
-    /// Represents starting location and orientation of the car.
-    ///
-    /// * `q1`: Three f32's in the format `[x, y, theta]`
-    ///
-    /// Represents ending location and orientation of the car.
-    ///
-    /// * `rho`: The turning radius of the car.
-    ///
-    /// Can be can be calculated by taking the forward velocity of the car and dividing it by the car's angular velocity.
-    /// Must be positive.
-    pub fn shortest_from(q0: [f32; 3], q1: [f32; 3], rho: f32) -> DubinsResult<Self> {
+    /// * `q0`: The starting location and orientation of the car.
+    /// * `q1`: The ending location and orientation of the car.
+    /// * `rho`: The turning radius of the car. Must be greater than 0.
+    pub fn shortest_from(q0: DubinsPos, q1: DubinsPos, rho: f32) -> DubinsResult<Self> {
         Self::shortest_in(q0, q1, rho, &DubinsPathType::ALL)
     }
 
     /// Calculate the specified path type
     ///
-    /// * `q0`: Three f32's in the format `[x, y, theta]`
-    ///
-    /// Represents starting location and orientation of the car.
-    ///
-    /// * `q1`: Three f32's in the format `[x, y, theta]`
-    ///
-    /// Represents ending location and orientation of the car.
-    ///
-    /// * `rho`: The turning radius of the car.
-    ///
-    /// Can be can be calculated by taking the forward velocity of the car and dividing it by the car's angular velocity.
-    /// Must be positive.
-    ///
+    /// * `q0`: The starting location and orientation of the car.
+    /// * `q1`: The ending location and orientation of the car.
+    /// * `rho`: The turning radius of the car. Must be greater than 0.
     /// * `path_type`: The Dubin's path type that's to be calculated.
-    pub fn from(q0: [f32; 3], q1: [f32; 3], rho: f32, path_type: DubinsPathType) -> DubinsResult<Self> {
+    pub fn from(q0: DubinsPos, q1: DubinsPos, rho: f32, path_type: DubinsPathType) -> DubinsResult<Self> {
         let in_ = DubinsIntermediateResults::from(q0, q1, rho);
         let params = in_.word(path_type)?;
-    
+
         Ok(Self {
             param: params,
             qi: q0,
@@ -324,40 +292,30 @@ impl DubinsPath {
             type_: path_type,
         })
     }
-    
+
     /// Calculate the total distance of any given path.
     pub fn length(&self) -> f32 {
         (self.param[0] + self.param[1] + self.param[2]) * self.rho
     }
 
     /// Finds the `[x, y, theta]` along some distance of some type with some starting position
-    /// 
-    /// * `t` - Normaliezd distance along the segement
-    /// 
-    /// Distance must be normalized
     ///
-    /// * `q0`: Three f32's in the format `[x, y, theta]`
-    ///
-    /// Represents starting location and orientation of the car.
-    /// 
-    /// * `type_`: The segment type
-    pub fn segment(t: f32, qi: [f32; 3], type_: SegmentType) -> [f32; 3] {
+    /// * `t`: Normalized distance along the segement (distance / rho).
+    /// * `q0`: The starting location and orientation of the car.
+    /// * `type_`: The segment type.
+    pub fn segment(t: f32, qi: DubinsPos, type_: SegmentType) -> DubinsPos {
         let st = qi[2].sin();
         let ct = qi[2].cos();
-    
+
         let qt = match type_ {
             SegmentType::L => [(qi[2] + t).sin() - st, -(qi[2] + t).cos() + ct, t],
             SegmentType::R => [-(qi[2] - t).sin() + st, (qi[2] - t).cos() - ct, -t],
             SegmentType::S => [ct * t, st * t, 0.],
         };
-    
-        [
-            qt[0] + qi[0],
-            qt[1] + qi[1],
-            qt[2] + qi[2],
-        ]
+
+        [qt[0] + qi[0], qt[1] + qi[1], qt[2] + qi[2]]
     }
-    
+
     /// Calculate the total distance of the path segment
     ///
     /// `i`: Index of the segment to get the length of in the range \[0, 2]
@@ -368,7 +326,7 @@ impl DubinsPath {
     /// Get car location and orientation long after some travel distance
     ///
     /// * `t`: The travel distance - must be less than the total length of the path
-    pub fn sample(&self, t: f32) -> [f32; 3] {
+    pub fn sample(&self, t: f32) -> DubinsPos {
         // tprime is the normalised variant of the parameter t
         let tprime = t / self.rho;
         let types = self.type_.to_segment_types();
@@ -392,29 +350,25 @@ impl DubinsPath {
         };
 
         // scale the target configuration, translate back to the original starting point
-        [
-            q[0] * self.rho + self.qi[0],
-            q[1] * self.rho + self.qi[1],
-            mod2pi(q[2]),
-        ]
+        [q[0] * self.rho + self.qi[0], q[1] * self.rho + self.qi[1], mod2pi(q[2])]
     }
 
     /// Get a vec of all the points along the path
     ///
     /// * `step_distance`: The distance between each point
-    pub fn sample_many(&self, step_distance: f32) -> Vec<[f32; 3]> {
+    pub fn sample_many(&self, step_distance: f32) -> Vec<DubinsPos> {
         let num_samples = (self.length() / step_distance).floor() as usize;
-        let mut results: Vec<[f32; 3]> = Vec::with_capacity(num_samples);
-    
+        let mut results: Vec<DubinsPos> = Vec::with_capacity(num_samples);
+
         for i in 0..num_samples {
             results.push(self.sample(i as f32 * step_distance));
         }
-    
+
         results
     }
 
     /// Get the endpoint of the path
-    pub fn endpoint(&self) -> [f32; 3] {
+    pub fn endpoint(&self) -> DubinsPos {
         self.sample(self.length())
     }
 
@@ -425,12 +379,12 @@ impl DubinsPath {
     pub fn extract_subpath(&self, t: f32) -> DubinsPath {
         // calculate the true parameter
         let tprime = t / self.rho;
-    
+
         // fix the parameters
         let param0 = self.param[0].min(tprime);
         let param1 = self.param[1].min(tprime - param0);
         let param2 = self.param[2].min(tprime - param0 - param1);
-    
+
         // copy most of the data
         Self {
             qi: self.qi,
