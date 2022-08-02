@@ -13,8 +13,8 @@ fn fast_shortest_csc_path() {
     for _ in 0..runs {
         let start = Instant::now();
 
-        let q0: PosRot = [2000., 2000., 0.];
-        let q1: PosRot = [0., 0., PI];
+        let q0: PosRot = [2000., 2000., 0.].into();
+        let q1: PosRot = [0., 0., PI].into();
 
         if let Err(err) = DubinsPath::shortest_in(q0, q1, TURN_RADIUS, &PathType::CCC) {
             panic_any(err);
@@ -38,8 +38,8 @@ fn fast_shortest_ccc_path() {
     for _ in 0..runs {
         let start = Instant::now();
 
-        let q0: PosRot = [2000., 2000., 0.];
-        let q1: PosRot = [0., 0., PI];
+        let q0: PosRot = [2000., 2000., 0.].into();
+        let q1: PosRot = [0., 0., PI].into();
 
         if let Err(err) = DubinsPath::shortest_in(q0, q1, TURN_RADIUS, &PathType::CSC) {
             panic_any(err);
@@ -63,8 +63,8 @@ fn fast_shortest_path() {
     for _ in 0..runs {
         let start = Instant::now();
 
-        let q0: PosRot = [2000., 2000., 0.];
-        let q1: PosRot = [0., 0., PI];
+        let q0: PosRot = [2000., 2000., 0.].into();
+        let q1: PosRot = [0., 0., PI].into();
 
         if let Err(err) = DubinsPath::shortest_from(q0, q1, TURN_RADIUS) {
             panic_any(err);
@@ -85,8 +85,8 @@ fn fast_many_sample() {
     let runs = 100000;
     let mut times = Vec::with_capacity(runs);
 
-    let q0: PosRot = [2000., 2000., 0.];
-    let q1: PosRot = [0., 0., PI];
+    let q0: PosRot = [2000., 2000., 0.].into();
+    let q1: PosRot = [0., 0., PI].into();
 
     let path = match DubinsPath::shortest_from(q0, q1, TURN_RADIUS) {
         Ok(p) => p,
