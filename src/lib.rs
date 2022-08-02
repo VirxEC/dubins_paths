@@ -30,13 +30,14 @@ pub enum PathType {
 
 impl PathType {
     /// All of the "Corner Straight Corner" path types
-    pub const CSC: [PathType; 4] = [Self::LSL, Self::LSR, Self::RSL, Self::RSR];
+    pub const CSC: [Self; 4] = [Self::LSL, Self::LSR, Self::RSL, Self::RSR];
     /// All of the "Corner Corner Corner" path types
-    pub const CCC: [PathType; 2] = [Self::RLR, Self::LRL];
+    pub const CCC: [Self; 2] = [Self::RLR, Self::LRL];
     /// All of the path types
-    pub const ALL: [PathType; 6] = [Self::LSL, Self::LSR, Self::RSL, Self::RSR, Self::RLR, Self::LRL];
+    pub const ALL: [Self; 6] = [Self::LSL, Self::LSR, Self::RSL, Self::RSR, Self::RLR, Self::LRL];
 
     /// Convert the path type an array of it's segment types
+    #[must_use]
     pub const fn to_segment_types(&self) -> [SegmentType; 3] {
         match self {
             Self::LSL => [SegmentType::L, SegmentType::S, SegmentType::L],
@@ -112,10 +113,11 @@ impl Intermediate {
     ///
     /// let intermediate_results = Intermediate::from(q0, q1, rho);
     /// ```
+    #[must_use]
     pub fn from(q0: PosRot, q1: PosRot, rho: f32) -> Self {
         let dx = q1[0] - q0[0];
         let dy = q1[1] - q0[1];
-        let d = (dx * dx + dy * dy).sqrt() / rho;
+        let d = dx.hypot(dy) / rho;
 
         // test required to prevent domain errors if dx=0 and dy=0
         let theta = if d > 0. {
@@ -142,7 +144,7 @@ impl Intermediate {
 
     /// Try to calculate a Left Straight Left path
     fn lsl(&self) -> Result<PosRot> {
-        let p_sq = 2. + self.d_sq - (2. * self.c_ab) + (2. * self.d * (self.sa - self.sb));
+        let p_sq = (2. * self.d).mul_add(self.sa - self.sb, 2. + self.d_sq - (2. * self.c_ab));
 
         if p_sq >= 0. {
             let tmp0 = self.d + self.sa - self.sb;
@@ -156,7 +158,7 @@ impl Intermediate {
 
     /// Try to calculate a Right Straight Right path
     fn rsr(&self) -> Result<PosRot> {
-        let p_sq = 2. + self.d_sq - (2. * self.c_ab) + (2. * self.d * (self.sb - self.sa));
+        let p_sq = (2. * self.d).mul_add(self.sb - self.sa, 2. + self.d_sq - (2. * self.c_ab));
 
         if p_sq >= 0. {
             let tmp0 = self.d - self.sa + self.sb;
@@ -170,7 +172,7 @@ impl Intermediate {
 
     /// Try to calculate a Left Straight Right path
     fn lsr(&self) -> Result<PosRot> {
-        let p_sq = -2. + (self.d_sq) + (2. * self.c_ab) + (2. * self.d * (self.sa + self.sb));
+        let p_sq = (2. * self.d).mul_add(self.sa + self.sb, 2.0f32.mul_add(self.c_ab, -2. + (self.d_sq)));
 
         if p_sq >= 0. {
             let p = p_sq.sqrt();
@@ -184,7 +186,7 @@ impl Intermediate {
 
     /// Try to calculate a Right Straight Left path
     fn rsl(&self) -> Result<PosRot> {
-        let p_sq = -2. + self.d_sq + (2. * self.c_ab) - (2. * self.d * (self.sa + self.sb));
+        let p_sq = 2.0f32.mul_add(self.c_ab, -2. + self.d_sq) - (2. * self.d * (self.sa + self.sb));
 
         if p_sq >= 0. {
             let p = p_sq.sqrt();
@@ -198,7 +200,7 @@ impl Intermediate {
 
     /// Try to calculate a Right Left Right path
     fn rlr(&self) -> Result<PosRot> {
-        let tmp0 = (6. - self.d_sq + 2. * self.c_ab + 2. * self.d * (self.sa - self.sb)) / 8.;
+        let tmp0 = (2. * self.d).mul_add(self.sa - self.sb, 2.0f32.mul_add(self.c_ab, 6. - self.d_sq)) / 8.;
         let phi = (self.ca - self.cb).atan2(self.d - self.sa + self.sb);
 
         if tmp0.abs() <= 1. {
@@ -213,7 +215,7 @@ impl Intermediate {
 
     /// Try to calculate a Left Right Left path
     fn lrl(&self) -> Result<PosRot> {
-        let tmp0 = (6. - self.d_sq + 2. * self.c_ab + 2. * self.d * (self.sb - self.sa)) / 8.;
+        let tmp0 = (2. * self.d).mul_add(self.sb - self.sa, 2.0f32.mul_add(self.c_ab, 6. - self.d_sq)) / 8.;
         let phi = (self.ca - self.cb).atan2(self.d + self.sa - self.sb);
 
         if tmp0.abs() <= 1. {
@@ -231,6 +233,10 @@ impl Intermediate {
     /// # Arguments
     ///
     /// * `path_type`: The Dubin's path type that's to be calculated.
+    ///
+    /// # Errors
+    ///
+    /// Will return a `NoPathError` if no path could be found.
     ///
     /// # Examples
     ///
@@ -271,6 +277,7 @@ fn fmodr(x: f32, y: f32) -> f32 {
 /// # Arguments
 ///
 /// * `theta`: The value to be modded
+#[must_use]
 pub fn mod2pi(theta: f32) -> f32 {
     fmodr(theta, 2. * PI)
 }
@@ -308,6 +315,10 @@ impl DubinsPath {
     /// * `rho`: The turning radius of the car. Must be greater than 0.
     /// * `types`: A reference to a slice that contains the path types to be compared.
     ///
+    /// # Errors
+    ///
+    /// Will return a `NoPathError` if no path could be found.
+    ///
     /// # Examples
     ///
     /// ```
@@ -342,12 +353,12 @@ impl DubinsPath {
                     }
                 }
 
-                best = Some((param, *path_type))
+                best = Some((param, *path_type));
             }
         }
 
         match best {
-            Some((param, type_)) => Ok(Self::new(q0, rho, param, type_)),
+            Some((param, path_type)) => Ok(Self::new(q0, rho, param, path_type)),
             None => Err(NoPathError),
         }
     }
@@ -359,6 +370,10 @@ impl DubinsPath {
     /// * `q0`: The starting location and orientation of the car.
     /// * `q1`: The ending location and orientation of the car.
     /// * `rho`: The turning radius of the car. Must be greater than 0.
+    ///
+    /// # Errors
+    ///
+    /// Will return a `NoPathError` if no path could be found.
     ///
     /// # Examples
     ///
@@ -389,6 +404,10 @@ impl DubinsPath {
     /// * `q1`: The ending location and orientation of the car.
     /// * `rho`: The turning radius of the car. Must be greater than 0.
     /// * `path_type`: The Dubin's path type that's to be calculated.
+    ///
+    /// # Errors
+    ///
+    /// Will return a `NoPathError` if no path could be found.
     ///
     /// # Examples
     ///
@@ -428,6 +447,7 @@ impl DubinsPath {
     ///
     /// let total_path_length = shortest_path_possible.length();
     /// ```
+    #[must_use]
     pub fn length(&self) -> f32 {
         (self.param[0] + self.param[1] + self.param[2]) * self.rho
     }
@@ -457,6 +477,7 @@ impl DubinsPath {
     ///
     /// let position: PosRot = DubinsPath::segment(t, qi, type_);
     /// ```
+    #[must_use]
     pub fn segment(t: f32, qi: PosRot, type_: SegmentType) -> PosRot {
         let st = qi[2].sin();
         let ct = qi[2].cos();
@@ -488,6 +509,7 @@ impl DubinsPath {
     /// // i must be in the range [0, 2]
     /// let total_segment_length: f32 = shortest_path_possible.segment_length(1);
     /// ```
+    #[must_use]
     pub fn segment_length(&self, i: usize) -> f32 {
         self.param[i] * self.rho
     }
@@ -503,12 +525,13 @@ impl DubinsPath {
     /// use dubins_paths::{DubinsPath, PosRot};
     ///
     /// let shortest_path_possible = DubinsPath::shortest_from([0., 0., PI / 4.], [100., -100., PI * (3. / 4.)], 11.6).unwrap();
-    /// 
+    ///
     /// // Find the halfway point of the path
     /// let t: f32 = shortest_path_possible.length() / 2.;
     ///
     /// let position: PosRot = shortest_path_possible.sample(t);
     /// ```
+    #[must_use]
     pub fn sample(&self, t: f32) -> PosRot {
         // tprime is the normalised variant of the parameter t
         let tprime = t / self.rho;
@@ -533,7 +556,7 @@ impl DubinsPath {
         };
 
         // scale the target configuration, translate back to the original starting point
-        [q[0] * self.rho + self.qi[0], q[1] * self.rho + self.qi[1], mod2pi(q[2])]
+        [q[0].mul_add(self.rho, self.qi[0]), q[1].mul_add(self.rho, self.qi[1]), mod2pi(q[2])]
     }
 
     /// Get a vec of all the points along the path
@@ -555,6 +578,7 @@ impl DubinsPath {
     ///
     /// let samples: Vec<PosRot> = shortest_path_possible.sample_many(step_distance);
     /// ```
+    #[must_use]
     pub fn sample_many(&self, step_distance: f32) -> Vec<PosRot> {
         let num_samples = (self.length() / step_distance).floor() as usize;
         let mut results: Vec<PosRot> = Vec::with_capacity(num_samples);
@@ -578,6 +602,7 @@ impl DubinsPath {
     ///
     /// let endpoint: PosRot = shortest_path_possible.endpoint();
     /// ```
+    #[must_use]
     pub fn endpoint(&self) -> PosRot {
         self.sample(self.length())
     }
@@ -596,12 +621,13 @@ impl DubinsPath {
     /// use dubins_paths::DubinsPath;
     ///
     /// let shortest_path_possible = DubinsPath::shortest_from([0., 0., PI / 4.], [100., -100., PI * (3. / 4.)], 11.6).unwrap();
-    /// 
+    ///
     /// // End the path halfway through the real path
     /// let t: f32 = shortest_path_possible.length() / 2.;
-    /// 
+    ///
     /// let subpath: DubinsPath = shortest_path_possible.extract_subpath(t);
     /// ```
+    #[must_use]
     pub fn extract_subpath(&self, t: f32) -> Self {
         // calculate the true parameter
         let tprime = t / self.rho;

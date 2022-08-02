@@ -96,7 +96,7 @@ fn fast_many_sample() {
     for _ in 0..runs {
         let start = Instant::now();
 
-        path.sample_many(10.);
+        let _ = path.sample_many(10.);
 
         times.push(start.elapsed().as_secs_f32());
     }
