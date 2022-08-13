@@ -14,8 +14,9 @@ pub enum SegmentType {
 }
 
 /// All the possible path types
-#[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, Hash, PartialEq, Default)]
 pub enum PathType {
+    #[default]
     /// A "Left Straight Left" Dubin's path
     LSL,
     /// A "Left Straight Right" Dubin's path
@@ -75,7 +76,7 @@ pub type PosRot = [f32; 3];
 
 /// The car's position and rotation: (\Vec3A(x, y, 0.), theta)
 #[cfg(feature = "glam")]
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct PosRot {
     pub pos: Vec3A,
     pub rot: f32,
@@ -113,7 +114,7 @@ pub type Params = [f32; 3];
 /// The pre-calculated information that applies to every path type
 ///
 /// To construct this type, use `Intermediate::from`
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct Intermediate {
     alpha: f32,
     beta: f32,
@@ -378,7 +379,7 @@ pub fn mod2pi(theta: f32) -> f32 {
 }
 
 /// All the basic information about Dubin's Paths
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct DubinsPath {
     /// The initial location (x, y, theta)
     pub qi: PosRot,
