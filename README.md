@@ -1,5 +1,7 @@
 # Dubin's Paths
 
+[![unsafe forbidden](https://img.shields.io/badge/unsafe-forbidden-success.svg)](https://github.com/rust-secure-code/safety-dance/)
+
 Rust code for calculating Dubin's Paths
 
 Credit to [Andrew Walker](https://github.com/AndrewWalker) for the [original C code](https://github.com/AndrewWalker/Dubins-Curves)
@@ -9,7 +11,7 @@ I've ported the code to Rust and documented everything that I could understand. 
 ## Quick example
 
 ```rust
-use std::f32::consts::PI;
+use core::f32::consts::PI;
 use dubins_paths::{self, DubinsPath, PathType, PosRot};
 
 // PosRot has the format [f32; 3]
@@ -36,6 +38,11 @@ assert!(shortest_path_possible.is_ok());
 
 DubinsPath has many methods you should look into, such as length, extract_subpath, sample, and sample_many.
 
-## Documentation
+## Features
 
-Looking for some documentation? Head on over to the [docs.rs](https://docs.rs/dubins_paths/) page!
+* `glam` - Use a [glam](https://crates.io/crates/glam) compatible API
+* `fast-math` - Enable the fast-math feature in glam
+
+## More documentation
+
+Looking for some more detailed documentation? Head on over to the [docs.rs](https://docs.rs/dubins_paths/) page!

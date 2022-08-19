@@ -1,6 +1,6 @@
 [package]
 name = "dubins_paths"
-version = "1.4.1"
+version = "1.4.2"
 authors = ["VirxEC"]
 edition = "2021"
 description = "Rust code for calculating Dubin's Paths"
@@ -12,10 +12,14 @@ categories = ["science", "simulation", "algorithms"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[dev-dependencies]
+rand = "0.8.5"
+
 [dependencies]
-glam = { version = "0.21.3", optional = true }
+glam = { version = "0.21", optional = true }
 
 [features]
+glam = ["dep:glam"]
 fast-math = ["glam", "glam/fast-math"]
 
 [profile.release]

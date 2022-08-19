@@ -1,6 +1,11 @@
+#![forbid(unsafe_code)]
+
+use core::{f32::consts::PI, fmt, result};
 #[cfg(feature = "glam")]
 use glam::Vec3A;
-use std::{error::Error, f32::consts::PI, fmt, result};
+use std::error::Error;
+#[cfg(feature = "glam")]
+use std::ops::Add;
 
 /// The three segment types in a Dubin's Path
 #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
@@ -70,21 +75,24 @@ impl Error for NoPathError {}
 /// Ok(T) or Err(DubinsError)
 pub type Result<T> = result::Result<T, NoPathError>;
 
-/// The car's positon and rotation: \[x, y, theta]
+/// The car's position and rotation in radians: \[x, y, theta]
 #[cfg(not(feature = "glam"))]
 pub type PosRot = [f32; 3];
 
-/// The car's position and rotation: (\Vec3A(x, y, 0.), theta)
+/// The car's position and rotation in radians
 #[cfg(feature = "glam")]
 #[derive(Clone, Copy, Debug, Default)]
 pub struct PosRot {
+    /// The car's position
     pub pos: Vec3A,
+    /// The car's rotation in radians
     pub rot: f32,
 }
 
 #[cfg(feature = "glam")]
 impl PosRot {
-    /// Create a new PosRot from a Vec3A and rotation
+    /// Create a new `PosRot` from a `Vec3A` and rotation
+    #[must_use]
     pub const fn new(pos: Vec3A, rot: f32) -> Self {
         Self {
             pos,
@@ -92,7 +100,8 @@ impl PosRot {
         }
     }
 
-    /// Create a new PosRot from a position and rotation
+    /// Create a new `PosRot` from a position and rotation
+    #[must_use]
     pub const fn from_f32(x: f32, y: f32, rot: f32) -> Self {
         Self {
             pos: Vec3A::new(x, y, 0.),
@@ -103,8 +112,21 @@ impl PosRot {
 
 #[cfg(feature = "glam")]
 impl From<[f32; 3]> for PosRot {
+    #[inline]
     fn from(posrot: [f32; 3]) -> Self {
         Self::from_f32(posrot[0], posrot[1], posrot[2])
+    }
+}
+
+#[cfg(feature = "glam")]
+impl Add<PosRot> for PosRot {
+    type Output = Self;
+    #[inline]
+    fn add(self, rhs: Self) -> Self {
+        Self {
+            pos: self.pos + rhs.pos,
+            rot: self.rot + rhs.rot,
+        }
     }
 }
 
@@ -140,7 +162,7 @@ impl Intermediate {
     /// # Examples
     ///
     /// ```
-    /// use std::f32::consts::PI;
+    /// use core::f32::consts::PI;
     /// use dubins_paths::{Intermediate, PosRot};
     ///
     /// // The starting position
@@ -183,6 +205,12 @@ impl Intermediate {
 }
 
 #[cfg(feature = "glam")]
+const fn flatten(vec: Vec3A) -> Vec3A {
+    let [x, y, _] = vec.to_array();
+    Vec3A::new(x, y, 0.)
+}
+
+#[cfg(feature = "glam")]
 impl Intermediate {
     /// Pre-calculated values that are required by all of Dubin's Paths
     ///
@@ -196,7 +224,7 @@ impl Intermediate {
     ///
     /// ```
     /// use glam::Vec3A;
-    /// use std::f32::consts::PI;
+    /// use core::f32::consts::PI;
     /// use dubins_paths::{Intermediate, PosRot};
     ///
     /// // The starting position
@@ -210,8 +238,8 @@ impl Intermediate {
     /// ```
     #[must_use]
     pub fn from(q0: PosRot, q1: PosRot, rho: f32) -> Self {
-        let q = q1.pos - q0.pos;
-        let d = q.x.hypot(q.y) / rho;
+        let q = flatten(q1.pos - q0.pos);
+        let d = q.length() / rho;
 
         // test required to prevent domain errors if q.x=0 and q.y=0
         let theta = if d > 0. {
@@ -268,7 +296,7 @@ impl Intermediate {
 
     /// Try to calculate a Left Straight Right path
     fn lsr(&self) -> Result<Params> {
-        let p_sq = (2. * self.d).mul_add(self.sa + self.sb, 2.0f32.mul_add(self.c_ab, -2. + (self.d_sq)));
+        let p_sq = (2. * self.d).mul_add(self.sa + self.sb, 2.0f32.mul_add(self.c_ab, -2. + self.d_sq));
 
         if p_sq >= 0. {
             let p = p_sq.sqrt();
@@ -337,7 +365,7 @@ impl Intermediate {
     /// # Examples
     ///
     /// ```
-    /// use std::f32::consts::PI;
+    /// use core::f32::consts::PI;
     /// use dubins_paths::{self, Intermediate, PathType, Params};
     ///
     /// let intermediate_results = Intermediate::from([0., 0., PI / 4.].into(), [100., -100., PI * (3. / 4.)].into(), 11.6);
@@ -364,6 +392,7 @@ impl Intermediate {
 ///
 /// * `x`: The value to be modded
 /// * `y`: The modulus
+#[inline(always)]
 fn fmodr(x: f32, y: f32) -> f32 {
     x - y * (x / y).floor()
 }
@@ -374,6 +403,7 @@ fn fmodr(x: f32, y: f32) -> f32 {
 ///
 /// * `theta`: The value to be modded
 #[must_use]
+#[inline(always)]
 pub fn mod2pi(theta: f32) -> f32 {
     fmodr(theta, 2. * PI)
 }
@@ -406,7 +436,7 @@ impl DubinsPath {
     /// # Examples
     ///
     /// ```
-    /// use std::f32::consts::PI;
+    /// use core::f32::consts::PI;
     /// use dubins_paths::{DubinsPath, PosRot, SegmentType};
     ///
     /// // Normalized distance along the segement (distance / rho)
@@ -420,8 +450,7 @@ impl DubinsPath {
     /// ```
     #[must_use]
     pub fn segment(t: f32, qi: PosRot, type_: SegmentType) -> PosRot {
-        let st = qi[2].sin();
-        let ct = qi[2].cos();
+        let (st, ct) = qi[2].sin_cos();
 
         let qt = match type_ {
             SegmentType::L => [(qi[2] + t).sin() - st, -(qi[2] + t).cos() + ct, t],
@@ -439,7 +468,7 @@ impl DubinsPath {
     /// * `t`: The travel distance - must be less than the total length of the path
     ///
     /// ```
-    /// use std::f32::consts::PI;
+    /// use core::f32::consts::PI;
     /// use dubins_paths::{DubinsPath, PosRot};
     ///
     /// let shortest_path_possible = DubinsPath::shortest_from([0., 0., PI / 4.], [100., -100., PI * (3. / 4.)], 11.6).unwrap();
@@ -493,7 +522,7 @@ impl DubinsPath {
     /// # Examples
     ///
     /// ```
-    /// use std::f32::consts::PI;
+    /// use core::f32::consts::PI;
     /// use dubins_paths::{DubinsPath, PosRot, SegmentType};
     ///
     /// // Normalized distance along the segement (distance / rho)
@@ -507,8 +536,7 @@ impl DubinsPath {
     /// ```
     #[must_use]
     pub fn segment(t: f32, qi: PosRot, type_: SegmentType) -> PosRot {
-        let st = qi.rot.sin();
-        let ct = qi.rot.cos();
+        let (st, ct) = qi.rot.sin_cos();
 
         let qt = match type_ {
             SegmentType::L => PosRot::from_f32((qi.rot + t).sin() - st, -(qi.rot + t).cos() + ct, t),
@@ -516,7 +544,7 @@ impl DubinsPath {
             SegmentType::S => PosRot::from_f32(ct * t, st * t, 0.),
         };
 
-        PosRot::new(qt.pos + qi.pos, qt.rot + qi.rot)
+        qt + qi
     }
 
     /// Get car location and orientation long after some travel distance
@@ -526,7 +554,7 @@ impl DubinsPath {
     /// * `t`: The travel distance - must be less than the total length of the path
     ///
     /// ```
-    /// use std::f32::consts::PI;
+    /// use core::f32::consts::PI;
     /// use dubins_paths::{DubinsPath, PosRot};
     ///
     /// let shortest_path_possible = DubinsPath::shortest_from(PosRot::from_f32(0., 0., PI / 4.), PosRot::from_f32(100., -100., PI * (3. / 4.)), 11.6).unwrap();
@@ -543,7 +571,7 @@ impl DubinsPath {
         let types = self.type_.to_segment_types();
 
         // initial configuration
-        let qi = [0., 0., self.qi.rot].into();
+        let qi = PosRot::new(Vec3A::ZERO, self.qi.rot);
 
         // generate the target configuration
         let p1 = self.param[0];
@@ -592,7 +620,7 @@ impl DubinsPath {
     /// # Examples
     ///
     /// ```
-    /// use std::f32::consts::PI;
+    /// use core::f32::consts::PI;
     /// use dubins_paths::{self, DubinsPath, PathType, PosRot};
     ///
     /// // The starting position
@@ -648,7 +676,7 @@ impl DubinsPath {
     /// # Examples
     ///
     /// ```
-    /// use std::f32::consts::PI;
+    /// use core::f32::consts::PI;
     /// use dubins_paths::{self, DubinsPath, PathType, PosRot};
     ///
     /// // The starting position
@@ -682,7 +710,7 @@ impl DubinsPath {
     /// # Examples
     ///
     /// ```
-    /// use std::f32::consts::PI;
+    /// use core::f32::consts::PI;
     /// use dubins_paths::{self, DubinsPath, PathType, PosRot};
     ///
     /// // The starting position
@@ -710,7 +738,7 @@ impl DubinsPath {
     /// # Examples
     ///
     /// ```
-    /// use std::f32::consts::PI;
+    /// use core::f32::consts::PI;
     /// use dubins_paths::DubinsPath;
     ///
     /// let shortest_path_possible = DubinsPath::shortest_from([0., 0., PI / 4.].into(), [100., -100., PI * (3. / 4.)].into(), 11.6).unwrap();
@@ -731,7 +759,7 @@ impl DubinsPath {
     /// # Examples
     ///
     /// ```
-    /// use std::f32::consts::PI;
+    /// use core::f32::consts::PI;
     /// use dubins_paths::DubinsPath;
     ///
     /// let shortest_path_possible = DubinsPath::shortest_from([0., 0., PI / 4.].into(), [100., -100., PI * (3. / 4.)].into(), 11.6).unwrap();
@@ -754,7 +782,7 @@ impl DubinsPath {
     /// # Examples
     ///
     /// ```
-    /// use std::f32::consts::PI;
+    /// use core::f32::consts::PI;
     /// use dubins_paths::{DubinsPath, PosRot};
     ///
     /// let shortest_path_possible = DubinsPath::shortest_from([0., 0., PI / 4.].into(), [100., -100., PI * (3. / 4.)].into(), 11.6).unwrap();
@@ -781,7 +809,7 @@ impl DubinsPath {
     /// # Examples
     ///
     /// ```
-    /// use std::f32::consts::PI;
+    /// use core::f32::consts::PI;
     /// use dubins_paths::{DubinsPath, PosRot};
     ///
     /// let shortest_path_possible = DubinsPath::shortest_from([0., 0., PI / 4.].into(), [100., -100., PI * (3. / 4.)].into(), 11.6).unwrap();
@@ -803,7 +831,7 @@ impl DubinsPath {
     /// # Examples
     ///
     /// ```
-    /// use std::f32::consts::PI;
+    /// use core::f32::consts::PI;
     /// use dubins_paths::DubinsPath;
     ///
     /// let shortest_path_possible = DubinsPath::shortest_from([0., 0., PI / 4.].into(), [100., -100., PI * (3. / 4.)].into(), 11.6).unwrap();
