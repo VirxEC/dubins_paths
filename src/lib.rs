@@ -1,4 +1,83 @@
+#![warn(missing_docs)]
 #![forbid(unsafe_code)]
+
+//! Calculates a path between two points in space with starting and ending rotation requirements.
+//!
+//! The car is assumed to be a dubin's car.
+//! A dubin's car is a car that can only do 3 things: turn left, turn right, or go straight.
+//!
+//! ## Examples
+//! 
+//! ### Basic usage
+//!
+//! This will calculate the path that connects the current position and rotation of the car to the desired position and rotation.
+//! 
+//! ```
+//! use core::f32::consts::PI;
+//! use dubins_paths::{DubinsPath, PosRot, Result as DubinsResult};
+//!
+//! // PosRot has the format [f32; 3]
+//! // It represents the car's [x, y, theta]
+//! // Where x and y are the coordinates on a 2d plane
+//! // and theta is the orientation of the car's front in radians
+//!
+//! // The starting position and rotation
+//! // Calling 'into' is a requirement for using the glam feature, but PosRot::from_f32 can also be used for const contexts
+//! // If you're not using the glam feature, calling 'into' is unneeded.
+//! let q0: PosRot = [0., 0., PI / 4.].into();
+//!
+//! // The target end position and rotation
+//! let q1: PosRot = [100., -100., PI * (3. / 4.)].into();
+//!
+//! // The car's turning radius (must be > 0)
+//! // This can be calculated by taking a cars angular velocity and dividing it by the car's forward velocity
+//! let rho: f32 = 11.6;
+//!
+//! // Calculate the shortest possible path between these two points with the given turning radius
+//! let shortest_path_possible: DubinsResult<DubinsPath> = DubinsPath::shortest_from(q0, q1, rho);
+//!
+//! // Assert that the path was found!
+//! assert!(shortest_path_possible.is_ok());
+//! ```
+//! 
+//! ### Sample path for points
+//!
+//! Calculating the path is very optimized, and does not include any points along the path.
+//! 
+//! This means that if you want to get points along the path, extra work must be done.
+//! 
+//! However, if this is not needed, lots of time is saved.
+//! 
+//! Below, we calculate all points along a path spaced at a given interval. Use [`sample`] instead of [`sample_many`] to get only one point.
+//! 
+//! ```
+//! use core::f32::consts::PI;
+//! use dubins_paths::{DubinsPath, PosRot};
+//!
+//! let shortest_path_possible = DubinsPath::shortest_from([0., 0., PI / 4.].into(), [100., -100., PI * (3. / 4.)].into(), 11.6).unwrap();
+//!
+//! // The distance between each sample point
+//! let step_distance: f32 = 5.;
+//!
+//! let samples: Vec<PosRot> = shortest_path_possible.sample_many(step_distance);
+//! 
+//! // The path is just over 185 units long
+//! assert_eq!(shortest_path_possible.length().round(), 185.0);
+//! 
+//! // There are 37 points spaced 5 units apart
+//! assert_eq!(samples.len(), 37);
+//! ```
+//! 
+//! ## Features
+//! 
+//! * `glam` - Use a [glam](https://crates.io/crates/glam) compatible API
+//! * `fast-math` - Enable the fast-math feature in glam
+//! 
+//! [`sample`]: DubinsPath::sample
+//! [`sample_many`]: DubinsPath::sample_many
+
+#[cfg(feature = "glam")]
+pub extern crate glam;
 
 use core::{f32::consts::PI, fmt, result};
 #[cfg(feature = "glam")]
@@ -44,8 +123,9 @@ impl PathType {
     /// All of the path types
     pub const ALL: [Self; 6] = [Self::LSL, Self::LSR, Self::RSL, Self::RSR, Self::RLR, Self::LRL];
 
-    /// Convert the path type an array of it's segment types
+    /// Convert the path type an array of it's [`SegmentType`]s
     #[must_use]
+    #[inline]
     pub const fn to_segment_types(&self) -> [SegmentType; 3] {
         match self {
             Self::LSL => [SegmentType::L, SegmentType::S, SegmentType::L],
@@ -72,7 +152,7 @@ impl Error for NoPathError {}
 
 /// A type that allows the function to return either
 ///
-/// Ok(T) or Err(DubinsError)
+/// Ok(T) or Err([`NoPathError`])
 pub type Result<T> = result::Result<T, NoPathError>;
 
 /// The car's position and rotation in radians: \[x, y, theta]
@@ -93,15 +173,17 @@ pub struct PosRot {
 impl PosRot {
     /// Create a new `PosRot` from a `Vec3A` and rotation
     #[must_use]
+    #[inline]
     pub const fn new(pos: Vec3A, rot: f32) -> Self {
         Self {
-            pos,
+            pos: flatten(pos),
             rot,
         }
     }
 
     /// Create a new `PosRot` from a position and rotation
     #[must_use]
+    #[inline]
     pub const fn from_f32(x: f32, y: f32, rot: f32) -> Self {
         Self {
             pos: Vec3A::new(x, y, 0.),
@@ -176,6 +258,8 @@ impl Intermediate {
     /// ```
     #[must_use]
     pub fn from(q0: PosRot, q1: PosRot, rho: f32) -> Self {
+        debug_assert!(rho > 0.);
+
         let dx = q1[0] - q0[0];
         let dy = q1[1] - q0[1];
         let d = dx.hypot(dy) / rho;
@@ -205,6 +289,7 @@ impl Intermediate {
 }
 
 #[cfg(feature = "glam")]
+#[inline]
 const fn flatten(vec: Vec3A) -> Vec3A {
     let [x, y, _] = vec.to_array();
     Vec3A::new(x, y, 0.)
@@ -238,6 +323,8 @@ impl Intermediate {
     /// ```
     #[must_use]
     pub fn from(q0: PosRot, q1: PosRot, rho: f32) -> Self {
+        debug_assert!(rho > 0.);
+
         let q = flatten(q1.pos - q0.pos);
         let d = q.length() / rho;
 
@@ -360,7 +447,7 @@ impl Intermediate {
     ///
     /// # Errors
     ///
-    /// Will return a `NoPathError` if no path could be found.
+    /// Will return a [`NoPathError`] if no path could be found.
     ///
     /// # Examples
     ///
@@ -392,7 +479,7 @@ impl Intermediate {
 ///
 /// * `x`: The value to be modded
 /// * `y`: The modulus
-#[inline(always)]
+#[inline]
 fn fmodr(x: f32, y: f32) -> f32 {
     x - y * (x / y).floor()
 }
@@ -403,7 +490,7 @@ fn fmodr(x: f32, y: f32) -> f32 {
 ///
 /// * `theta`: The value to be modded
 #[must_use]
-#[inline(always)]
+#[inline]
 pub fn mod2pi(theta: f32) -> f32 {
     fmodr(theta, 2. * PI)
 }
@@ -425,7 +512,7 @@ pub struct DubinsPath {
 impl DubinsPath {
     /// Finds the `[x, y, theta]` along some distance of some type with some starting position
     ///
-    /// If you're looking to find the position of the car along some distance of the path, use `DubinsPath::sample` instead.
+    /// If you're looking to find the position of the car along some distance of the path, use [`sample`] instead.
     ///
     /// # Arguments
     ///
@@ -448,6 +535,8 @@ impl DubinsPath {
     ///
     /// let position: PosRot = DubinsPath::segment(t, qi, type_);
     /// ```
+    /// 
+    /// [`sample`]: DubinsPath::sample
     #[must_use]
     pub fn segment(t: f32, qi: PosRot, type_: SegmentType) -> PosRot {
         let (st, ct) = qi[2].sin_cos();
@@ -511,7 +600,7 @@ impl DubinsPath {
 impl DubinsPath {
     /// Finds the `[x, y, theta]` along some distance of some type with some starting position
     ///
-    /// If you're looking to find the position of the car along some distance of the path, use `DubinsPath::sample` instead.
+    /// If you're looking to find the position of the car along some distance of the path, use [`sample`] instead.
     ///
     /// # Arguments
     ///
@@ -534,6 +623,8 @@ impl DubinsPath {
     ///
     /// let position: PosRot = DubinsPath::segment(t, qi, type_);
     /// ```
+    /// 
+    /// [`sample`]: DubinsPath::sample
     #[must_use]
     pub fn segment(t: f32, qi: PosRot, type_: SegmentType) -> PosRot {
         let (st, ct) = qi.rot.sin_cos();
@@ -595,6 +686,7 @@ impl DubinsPath {
 
 impl DubinsPath {
     /// Create a new path
+    #[inline]
     const fn new(qi: PosRot, rho: f32, param: Params, type_: PathType) -> Self {
         Self {
             qi,
@@ -615,13 +707,13 @@ impl DubinsPath {
     ///
     /// # Errors
     ///
-    /// Will return a `NoPathError` if no path could be found.
+    /// Will return a [`NoPathError`] if no path could be found.
     ///
     /// # Examples
     ///
     /// ```
     /// use core::f32::consts::PI;
-    /// use dubins_paths::{self, DubinsPath, PathType, PosRot};
+    /// use dubins_paths::{DubinsPath, PathType, PosRot, Result as DubinsResult};
     ///
     /// // The starting position
     /// let q0: PosRot = [0., 0., PI / 4.].into();
@@ -634,7 +726,7 @@ impl DubinsPath {
     /// // If you plan on using ALL, consider using the shortcut function `DubinsPath::shortest_from(q0, q1, rho)`
     /// let types: &[PathType] = &PathType::CSC;
     ///
-    /// let shortest_path_in_selection: dubins_paths::Result<DubinsPath> = DubinsPath::shortest_in(q0, q1, rho, types);
+    /// let shortest_path_in_selection: DubinsResult<DubinsPath> = DubinsPath::shortest_in(q0, q1, rho, types);
     ///
     /// assert!(shortest_path_in_selection.is_ok());
     /// ```
@@ -671,13 +763,13 @@ impl DubinsPath {
     ///
     /// # Errors
     ///
-    /// Will return a `NoPathError` if no path could be found.
+    /// Will return a [`NoPathError`] if no path could be found.
     ///
     /// # Examples
     ///
     /// ```
     /// use core::f32::consts::PI;
-    /// use dubins_paths::{self, DubinsPath, PathType, PosRot};
+    /// use dubins_paths::{DubinsPath, PathType, PosRot, Result as DubinsResult};
     ///
     /// // The starting position
     /// let q0: PosRot = [0., 0., PI / 4.].into();
@@ -686,7 +778,7 @@ impl DubinsPath {
     /// // The car's turning radius (must be > 0)
     /// let rho: f32 = 11.6;
     ///
-    /// let shortest_path_possible: dubins_paths::Result<DubinsPath> = DubinsPath::shortest_from(q0, q1, rho);
+    /// let shortest_path_possible: DubinsResult<DubinsPath> = DubinsPath::shortest_from(q0, q1, rho);
     ///
     /// assert!(shortest_path_possible.is_ok());
     /// ```
@@ -705,13 +797,13 @@ impl DubinsPath {
     ///
     /// # Errors
     ///
-    /// Will return a `NoPathError` if no path could be found.
+    /// Will return a [`NoPathError`] if no path could be found.
     ///
     /// # Examples
     ///
     /// ```
     /// use core::f32::consts::PI;
-    /// use dubins_paths::{self, DubinsPath, PathType, PosRot};
+    /// use dubins_paths::{DubinsPath, PathType, PosRot, Result as DubinsResult};
     ///
     /// // The starting position
     /// let q0: PosRot = [0., 0., PI / 4.].into();
@@ -722,7 +814,7 @@ impl DubinsPath {
     /// // The path type to be calculated, in this case it's Left Straight Right
     /// let path_type: PathType = PathType::LSR;
     ///
-    /// let path: dubins_paths::Result<DubinsPath> = DubinsPath::from(q0, q1, rho, path_type);
+    /// let path: DubinsResult<DubinsPath> = DubinsPath::from(q0, q1, rho, path_type);
     ///
     /// assert!(path.is_ok());
     /// ```

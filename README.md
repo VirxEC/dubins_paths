@@ -12,17 +12,17 @@ I've ported the code to Rust and documented everything that I could understand. 
 
 ```rust
 use core::f32::consts::PI;
-use dubins_paths::{self, DubinsPath, PathType, PosRot};
+use dubins_paths::{DubinsPath, PosRot, Result as DubinsResult};
 
 // PosRot has the format [f32; 3]
 // It represents the car's [x, y, theta]
 // Where x and y are the coordinates on a 2d plane
 // and theta is the orientation of the car's front in radians
 
-// The starting position
+// The starting position and rotation
 let q0: PosRot = [0., 0., PI / 4.];
 
-// The target end position
+// The target end position and rotation
 let q1: PosRot = [100., -100., PI * (3. / 4.)];
 
 // The car's turning radius (must be > 0)
@@ -30,7 +30,7 @@ let q1: PosRot = [100., -100., PI * (3. / 4.)];
 let rho: f32 = 11.6;
 
 // Calculate the shortest possible path between these two points with the given turning radius
-let shortest_path_possible: dubins_paths::Result<DubinsPath> = DubinsPath::shortest_from(q0, q1, rho);
+let shortest_path_possible: DubinsResult<DubinsPath> = DubinsPath::shortest_from(q0, q1, rho);
 
 // Assert that the path was found!
 assert!(shortest_path_possible.is_ok());
