@@ -7,11 +7,11 @@
 //! A dubin's car is a car that can only do 3 things: turn left, turn right, or go straight.
 //!
 //! ## Examples
-//! 
+//!
 //! ### Basic usage
 //!
 //! This will calculate the path that connects the current position and rotation of the car to the desired position and rotation.
-//! 
+//!
 //! ```
 //! use core::f32::consts::PI;
 //! use dubins_paths::{DubinsPath, PosRot, Result as DubinsResult};
@@ -39,17 +39,17 @@
 //! // Assert that the path was found!
 //! assert!(shortest_path_possible.is_ok());
 //! ```
-//! 
+//!
 //! ### Sample path for points
 //!
 //! Calculating the path is very optimized, and does not include any points along the path.
-//! 
+//!
 //! This means that if you want to get points along the path, extra work must be done.
-//! 
+//!
 //! However, if this is not needed, lots of time is saved.
-//! 
+//!
 //! Below, we calculate all points along a path spaced at a given interval. Use [`sample`] instead of [`sample_many`] to get only one point.
-//! 
+//!
 //! ```
 //! use core::f32::consts::PI;
 //! use dubins_paths::{DubinsPath, PosRot};
@@ -60,19 +60,19 @@
 //! let step_distance: f32 = 5.;
 //!
 //! let samples: Vec<PosRot> = shortest_path_possible.sample_many(step_distance);
-//! 
+//!
 //! // The path is just over 185 units long
 //! assert_eq!(shortest_path_possible.length().round(), 185.0);
-//! 
+//!
 //! // There are 37 points spaced 5 units apart
 //! assert_eq!(samples.len(), 37);
 //! ```
-//! 
+//!
 //! ## Features
-//! 
+//!
 //! * `glam` - Use a [glam](https://crates.io/crates/glam) compatible API
 //! * `fast-math` - Enable the fast-math feature in glam
-//! 
+//!
 //! [`sample`]: DubinsPath::sample
 //! [`sample_many`]: DubinsPath::sample_many
 
@@ -535,7 +535,7 @@ impl DubinsPath {
     ///
     /// let position: PosRot = DubinsPath::segment(t, qi, type_);
     /// ```
-    /// 
+    ///
     /// [`sample`]: DubinsPath::sample
     #[must_use]
     pub fn segment(t: f32, qi: PosRot, type_: SegmentType) -> PosRot {
@@ -623,7 +623,7 @@ impl DubinsPath {
     ///
     /// let position: PosRot = DubinsPath::segment(t, qi, type_);
     /// ```
-    /// 
+    ///
     /// [`sample`]: DubinsPath::sample
     #[must_use]
     pub fn segment(t: f32, qi: PosRot, type_: SegmentType) -> PosRot {
