@@ -1,11 +1,17 @@
 extern crate dubins_paths;
 
 use core::f32::consts::PI;
-use dubins_paths::{DubinsPath, PathType, PosRot};
+use dubins_paths::{mod2pi, DubinsPath, PathType, PosRot};
 use rand::Rng;
 use std::{panic::panic_any, time::Instant};
 
 const TURN_RADIUS: f32 = 1. / 0.00076;
+
+#[test]
+fn mod2pi_test() {
+    assert!(mod2pi(-f32::from_bits(1)) >= 0.);
+    assert_eq!(mod2pi(2. * PI), 0.);
+}
 
 #[test]
 fn fast_shortest_csc_path() {

@@ -138,7 +138,7 @@ impl PathType {
     }
 }
 
-/// The one and only error that can be returned by the library, when a path is not found
+/// The error returned when a path is not found
 #[derive(Copy, Clone, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct NoPathError;
 
@@ -473,17 +473,6 @@ impl Intermediate {
     }
 }
 
-/// Floating point modulus suitable for rings
-///
-/// # Arguments
-///
-/// * `x`: The value to be modded
-/// * `y`: The modulus
-#[inline]
-fn fmodr(x: f32, y: f32) -> f32 {
-    x - y * (x / y).floor()
-}
-
 /// Ensure the given number is between 0 and 2pi
 ///
 /// # Arguments
@@ -492,7 +481,7 @@ fn fmodr(x: f32, y: f32) -> f32 {
 #[must_use]
 #[inline]
 pub fn mod2pi(theta: f32) -> f32 {
-    fmodr(theta, 2. * PI)
+    theta.rem_euclid(2. * PI)
 }
 
 /// All the basic information about Dubin's Paths
