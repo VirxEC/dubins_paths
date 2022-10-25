@@ -1,6 +1,6 @@
 [package]
 name = "dubins_paths"
-version = "1.4.4"
+version = "1.4.5"
 authors = ["VirxEC"]
 edition = "2021"
 description = "Rust code for calculating Dubin's Paths"
@@ -16,7 +16,7 @@ categories = ["science", "simulation", "algorithms"]
 rand = "0.8.5"
 
 [dependencies]
-glam = { version = "0.21", optional = true }
+glam = { version = "0.22.0", optional = true }
 
 [features]
 glam = ["dep:glam"]
