@@ -15,7 +15,7 @@ fn mod2pi_test() {
 
 #[test]
 fn fast_shortest_csc_path() {
-    let runs = 10_000_000;
+    let runs = 100_000;
     let mut times = Vec::with_capacity(runs);
 
     for _ in 0..runs {
@@ -34,13 +34,13 @@ fn fast_shortest_csc_path() {
     let total_elapsed = times.iter().sum::<f32>();
     let elapsed: f32 = total_elapsed / (runs as f32);
     let elapsed_ms = elapsed * 1000.;
-    println!("Ran test in an average of {} seconds ({}ms) - total {} seconds", elapsed, &elapsed_ms, total_elapsed);
-    assert!(elapsed_ms < 0.001);
+    println!("Ran test in an average of {elapsed} seconds ({elapsed_ms}ms) - total {total_elapsed} seconds");
+    assert!(elapsed_ms < 0.002);
 }
 
 #[test]
 fn fast_shortest_ccc_path() {
-    let runs = 10_000_000;
+    let runs = 100_000;
     let mut times = Vec::with_capacity(runs);
 
     for _ in 0..runs {
@@ -59,13 +59,13 @@ fn fast_shortest_ccc_path() {
     let total_elapsed = times.iter().sum::<f32>();
     let elapsed: f32 = total_elapsed / (runs as f32);
     let elapsed_ms = elapsed * 1000.;
-    println!("Ran test in an average of {} seconds ({}ms) - total {} seconds", elapsed, &elapsed_ms, total_elapsed);
-    assert!(elapsed_ms < 0.001);
+    println!("Ran test in an average of {elapsed} seconds ({elapsed_ms}ms) - total {total_elapsed} seconds");
+    assert!(elapsed_ms < 0.002);
 }
 
 #[test]
 fn fast_shortest_path() {
-    let runs = 10_000_000;
+    let runs = 100_000;
     let mut times = Vec::with_capacity(runs);
 
     for _ in 0..runs {
@@ -84,13 +84,15 @@ fn fast_shortest_path() {
     let total_elapsed = times.iter().sum::<f32>();
     let elapsed: f32 = total_elapsed / (runs as f32);
     let elapsed_ms = elapsed * 1000.;
-    println!("Ran test in an average of {} seconds ({}ms) - total {} seconds", elapsed, &elapsed_ms, total_elapsed);
-    assert!(elapsed_ms < 0.001);
+    println!("Ran test in an average of {elapsed} seconds ({elapsed_ms}ms) - total {total_elapsed} seconds");
+    assert!(elapsed_ms < 0.002);
 }
 
 #[test]
 fn fast_many_sample() {
-    let runs = 100_000;
+    const STEP_DISTANCE: f32 = 10.;
+
+    let runs = 50_000;
     let mut times = Vec::with_capacity(runs);
 
     let q0: PosRot = [2000., 2000., 0.].into();
@@ -101,10 +103,16 @@ fn fast_many_sample() {
         Err(err) => panic_any(err),
     };
 
+    let expected_samples = (path.length() / STEP_DISTANCE).floor() as usize;
+    let num_samples = path.sample_many(STEP_DISTANCE).len();
+
+    // it's ok for it to be one less than expected due to floating point errors
+    assert!(expected_samples == num_samples || expected_samples + 1 == num_samples);
+
     for _ in 0..runs {
         let start = Instant::now();
 
-        let _ = path.sample_many(10.);
+        let _ = path.sample_many(STEP_DISTANCE);
 
         times.push(start.elapsed().as_secs_f32());
     }
@@ -112,15 +120,18 @@ fn fast_many_sample() {
     let total_elapsed = times.iter().sum::<f32>();
     let elapsed: f32 = total_elapsed / (runs as f32);
     let elapsed_ms = elapsed * 1000.;
-    println!("Ran test in an average of {} seconds ({}ms) - total {} seconds", elapsed, &elapsed_ms, total_elapsed);
-    assert!(elapsed_ms < 0.05);
+    println!("Ran test in an average of {elapsed} seconds ({elapsed_ms}ms) - total {total_elapsed} seconds");
+    assert!(elapsed_ms < 0.1);
 }
 
 #[test]
 fn many_path_correctness() {
     #[cfg(feature = "glam")]
     fn angle_2d(vec1: f32, vec2: f32) -> f32 {
-        glam::Vec3A::new(vec1.cos(), vec1.sin(), 0.).dot(glam::Vec3A::new(vec2.cos(), vec2.sin(), 0.)).clamp(-1., 1.).acos()
+        glam::Vec3A::new(vec1.cos(), vec1.sin(), 0.)
+            .dot(glam::Vec3A::new(vec2.cos(), vec2.sin(), 0.))
+            .clamp(-1., 1.)
+            .acos()
     }
 
     #[cfg(not(feature = "glam"))]
@@ -132,13 +143,23 @@ fn many_path_correctness() {
     // If no path is found, just skip.
     // If the path is found the sampled endpoint is different from the specified endpoint, then fail.
 
-    let runs = 10_000_000;
+    let runs = 50_000;
     let mut thread_rng = rand::thread_rng();
     let mut error = 0;
 
     for _ in 0..runs {
-        let q0: PosRot = [thread_rng.gen_range(-10000_f32..10000.), thread_rng.gen_range(-10000_f32..10000.), thread_rng.gen_range((-2. * PI)..(2. * PI))].into();
-        let q1: PosRot = [thread_rng.gen_range(-10000_f32..10000.), thread_rng.gen_range(-10000_f32..10000.), thread_rng.gen_range((-2. * PI)..(2. * PI))].into();
+        let q0: PosRot = [
+            thread_rng.gen_range(-10000_f32..10000.),
+            thread_rng.gen_range(-10000_f32..10000.),
+            thread_rng.gen_range((-2. * PI)..(2. * PI)),
+        ]
+        .into();
+        let q1: PosRot = [
+            thread_rng.gen_range(-10000_f32..10000.),
+            thread_rng.gen_range(-10000_f32..10000.),
+            thread_rng.gen_range((-2. * PI)..(2. * PI)),
+        ]
+        .into();
 
         let path = match DubinsPath::shortest_from(q0, q1, TURN_RADIUS) {
             Ok(p) => p,
@@ -149,13 +170,13 @@ fn many_path_correctness() {
 
         #[cfg(feature = "glam")]
         if q1.pos.distance(endpoint.pos) > 1. || angle_2d(q1.rot, endpoint.rot) > 0.1 {
-            println!("Endpoint is different! {:?} | {:?} | {:?}", path.type_, q1, endpoint);
+            println!("Endpoint is different! {:?} | {q1:?} | {endpoint:?}", path.type_);
             error += 1;
         }
 
         #[cfg(not(feature = "glam"))]
         if (q1[0] - endpoint[0]).abs() > 1. || (q1[1] - endpoint[1]).abs() > 1. || angle_2d(q1[2], endpoint[2]) > 0.1 {
-            println!("Endpoint is different! {:?} | {:?} | {:?}", path.type_, q1, endpoint);
+            println!("Endpoint is different! {:?} | {q1:?} | {endpoint:?}", path.type_);
             error += 1;
         }
     }

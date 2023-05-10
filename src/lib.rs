@@ -97,6 +97,21 @@ pub enum SegmentType {
     R,
 }
 
+impl SegmentType {
+    /// Segments of a "Left Straight Left" path
+    pub const LSL: [SegmentType; 3] = [SegmentType::L, SegmentType::S, SegmentType::L];
+    /// Segments of a "Left Straight Right" path
+    pub const LSR: [SegmentType; 3] = [SegmentType::L, SegmentType::S, SegmentType::R];
+    /// Segments of a "Right Straight Left" path
+    pub const RSL: [SegmentType; 3] = [SegmentType::R, SegmentType::S, SegmentType::L];
+    /// Segments of a "Right Straight Right" path
+    pub const RSR: [SegmentType; 3] = [SegmentType::R, SegmentType::S, SegmentType::R];
+    /// Segments of a "Right Left Right" path
+    pub const RLR: [SegmentType; 3] = [SegmentType::R, SegmentType::L, SegmentType::R];
+    /// Segments of a "Left Right Left" path
+    pub const LRL: [SegmentType; 3] = [SegmentType::L, SegmentType::R, SegmentType::L];
+}
+
 /// All the possible path types
 #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq, Default)]
 pub enum PathType {
@@ -128,12 +143,12 @@ impl PathType {
     #[inline]
     pub const fn to_segment_types(&self) -> [SegmentType; 3] {
         match self {
-            Self::LSL => [SegmentType::L, SegmentType::S, SegmentType::L],
-            Self::LSR => [SegmentType::L, SegmentType::S, SegmentType::R],
-            Self::RSL => [SegmentType::R, SegmentType::S, SegmentType::L],
-            Self::RSR => [SegmentType::R, SegmentType::S, SegmentType::R],
-            Self::RLR => [SegmentType::R, SegmentType::L, SegmentType::R],
-            Self::LRL => [SegmentType::L, SegmentType::R, SegmentType::L],
+            Self::LSL => SegmentType::LSL,
+            Self::LSR => SegmentType::LSR,
+            Self::RSL => SegmentType::RSL,
+            Self::RSR => SegmentType::RSR,
+            Self::RLR => SegmentType::RLR,
+            Self::LRL => SegmentType::LRL,
         }
     }
 }
@@ -155,6 +170,23 @@ impl Error for NoPathError {}
 /// Ok(T) or Err([`NoPathError`])
 pub type Result<T> = result::Result<T, NoPathError>;
 
+#[must_use]
+#[inline]
+#[cfg(feature = "glam")]
+fn from_rot(posrot: PosRot) -> PosRot {
+    PosRot {
+        pos: Vec3A::ZERO,
+        rot: posrot.rot,
+    }
+}
+
+#[must_use]
+#[inline]
+#[cfg(not(feature = "glam"))]
+fn from_rot(posrot: PosRot) -> PosRot {
+    [0., 0., posrot[2]]
+}
+
 /// The car's position and rotation in radians: \[x, y, theta]
 #[cfg(not(feature = "glam"))]
 pub type PosRot = [f32; 3];
@@ -175,20 +207,14 @@ impl PosRot {
     #[must_use]
     #[inline]
     pub const fn new(pos: Vec3A, rot: f32) -> Self {
-        Self {
-            pos: flatten(pos),
-            rot,
-        }
+        Self { pos: flatten(pos), rot }
     }
 
     /// Create a new `PosRot` from a position and rotation
     #[must_use]
     #[inline]
     pub const fn from_f32(x: f32, y: f32, rot: f32) -> Self {
-        Self {
-            pos: Vec3A::new(x, y, 0.),
-            rot,
-        }
+        Self { pos: Vec3A::new(x, y, 0.), rot }
     }
 }
 
@@ -265,23 +291,22 @@ impl Intermediate {
         let d = dx.hypot(dy) / rho;
 
         // test required to prevent domain errors if dx=0 and dy=0
-        let theta = if d > 0. {
-            mod2pi(dy.atan2(dx))
-        } else {
-            0.
-        };
+        let theta = mod2pi(dy.atan2(dx));
 
         let alpha = mod2pi(q0[2] - theta);
         let beta = mod2pi(q1[2] - theta);
+
+        let (sa, ca) = alpha.sin_cos();
+        let (sb, cb) = beta.sin_cos();
 
         Self {
             alpha,
             beta,
             d,
-            sa: alpha.sin(),
-            sb: beta.sin(),
-            ca: alpha.cos(),
-            cb: beta.cos(),
+            sa,
+            sb,
+            ca,
+            cb,
             c_ab: (alpha - beta).cos(),
             d_sq: d * d,
         }
@@ -328,24 +353,21 @@ impl Intermediate {
         let q = flatten(q1.pos - q0.pos);
         let d = q.length() / rho;
 
-        // test required to prevent domain errors if q.x=0 and q.y=0
-        let theta = if d > 0. {
-            mod2pi(q.y.atan2(q.x))
-        } else {
-            0.
-        };
-
+        let theta = mod2pi(q.y.atan2(q.x));
         let alpha = mod2pi(q0.rot - theta);
         let beta = mod2pi(q1.rot - theta);
+
+        let (sa, ca) = alpha.sin_cos();
+        let (sb, cb) = beta.sin_cos();
 
         Self {
             alpha,
             beta,
             d,
-            sa: alpha.sin(),
-            sb: beta.sin(),
-            ca: alpha.cos(),
-            cb: beta.cos(),
+            sa,
+            sb,
+            ca,
+            cb,
             c_ab: (alpha - beta).cos(),
             d_sq: d * d,
         }
@@ -461,6 +483,7 @@ impl Intermediate {
     ///
     /// assert!(word.is_ok());
     /// ```
+    #[inline]
     pub fn word(&self, path_type: PathType) -> Result<Params> {
         match path_type {
             PathType::LSL => self.lsl(),
@@ -565,22 +588,35 @@ impl DubinsPath {
         // initial configuration
         let qi = [0., 0., self.qi[2]];
 
-        // generate the target configuration
-        let p1 = self.param[0];
-        let p2 = self.param[1];
-
-        let q1 = Self::segment(p1, qi, types[0]); // end-of segment 1
-        let q2 = Self::segment(p2, q1, types[1]); // end-of segment 2
-
-        let q = if tprime < p1 {
+        let q = if tprime < self.param[0] {
             Self::segment(tprime, qi, types[0])
-        } else if tprime < p1 + p2 {
-            Self::segment(tprime - p1, q1, types[1])
         } else {
-            Self::segment(tprime - p1 - p2, q2, types[2])
+            let q1 = Self::segment(self.param[0], qi, types[0]); // end-of segment 1
+
+            if tprime < self.param[0] + self.param[1] {
+                Self::segment(tprime - self.param[0], q1, types[1])
+            } else {
+                let q2 = Self::segment(self.param[1], q1, types[1]); // end-of segment 2
+
+                Self::segment(tprime - self.param[0] - self.param[1], q2, types[2])
+            }
         };
 
         // scale the target configuration, translate back to the original starting point
+        [q[0].mul_add(self.rho, self.qi[0]), q[1].mul_add(self.rho, self.qi[1]), mod2pi(q[2])]
+    }
+
+    fn sample_cached(&self, t: f32, types: &[SegmentType; 3], qi: PosRot, q1: PosRot, q2: PosRot) -> PosRot {
+        let tprime = t / self.rho;
+
+        let q = if tprime < self.param[0] {
+            Self::segment(tprime, qi, types[0])
+        } else if tprime < self.param[0] + self.param[1] {
+            Self::segment(tprime - self.param[0], q1, types[1])
+        } else {
+            Self::segment(tprime - self.param[0] - self.param[1], q2, types[2])
+        };
+
         [q[0].mul_add(self.rho, self.qi[0]), q[1].mul_add(self.rho, self.qi[1]), mod2pi(q[2])]
     }
 }
@@ -651,40 +687,51 @@ impl DubinsPath {
         let types = self.type_.to_segment_types();
 
         // initial configuration
-        let qi = PosRot::new(Vec3A::ZERO, self.qi.rot);
+        let qi = PosRot {
+            pos: Vec3A::ZERO,
+            rot: self.qi.rot,
+        };
 
-        // generate the target configuration
-        let p1 = self.param[0];
-        let p2 = self.param[1];
-
-        let q1 = Self::segment(p1, qi, types[0]); // end-of segment 1
-        let q2 = Self::segment(p2, q1, types[1]); // end-of segment 2
-
-        let q = if tprime < p1 {
+        let q = if tprime < self.param[0] {
             Self::segment(tprime, qi, types[0])
-        } else if tprime < p1 + p2 {
-            Self::segment(tprime - p1, q1, types[1])
         } else {
-            Self::segment(tprime - p1 - p2, q2, types[2])
+            let q1 = Self::segment(self.param[0], qi, types[0]); // end-of segment 1
+
+            if tprime < self.param[0] + self.param[1] {
+                Self::segment(tprime - self.param[0], q1, types[1])
+            } else {
+                let q2 = Self::segment(self.param[1], q1, types[1]); // end-of segment 2
+
+                Self::segment(tprime - self.param[0] - self.param[1], q2, types[2])
+            }
         };
 
         // scale the target configuration, translate back to the original starting point
-        PosRot::new((q.pos * self.rho) + self.qi.pos, mod2pi(q.rot))
+        PosRot {
+            pos: (q.pos * self.rho) + self.qi.pos,
+            rot: mod2pi(q.rot),
+        }
+    }
+
+    fn sample_cached(&self, t: f32, types: &[SegmentType; 3], qi: PosRot, q1: PosRot, q2: PosRot) -> PosRot {
+        let tprime = t / self.rho;
+
+        let q = if tprime < self.param[0] {
+            Self::segment(tprime, qi, types[0])
+        } else if tprime < self.param[0] + self.param[1] {
+            Self::segment(tprime - self.param[0], q1, types[1])
+        } else {
+            Self::segment(tprime - self.param[0] - self.param[1], q2, types[2])
+        };
+
+        PosRot {
+            pos: (q.pos * self.rho) + self.qi.pos,
+            rot: mod2pi(q.rot),
+        }
     }
 }
 
 impl DubinsPath {
-    /// Create a new path
-    #[inline]
-    const fn new(qi: PosRot, rho: f32, param: Params, type_: PathType) -> Self {
-        Self {
-            qi,
-            rho,
-            param,
-            type_,
-        }
-    }
-
     /// Find the shortest path out of the specified path types
     ///
     /// # Arguments
@@ -737,7 +784,12 @@ impl DubinsPath {
         }
 
         match best {
-            Some((param, path_type)) => Ok(Self::new(q0, rho, param, path_type)),
+            Some((param, path_type)) => Ok(Self {
+                qi: q0,
+                rho,
+                param,
+                type_: path_type,
+            }),
             None => Err(NoPathError),
         }
     }
@@ -771,6 +823,7 @@ impl DubinsPath {
     ///
     /// assert!(shortest_path_possible.is_ok());
     /// ```
+    #[inline]
     pub fn shortest_from(q0: PosRot, q1: PosRot, rho: f32) -> Result<Self> {
         Self::shortest_in(q0, q1, rho, &PathType::ALL)
     }
@@ -807,11 +860,14 @@ impl DubinsPath {
     ///
     /// assert!(path.is_ok());
     /// ```
+    #[inline]
     pub fn from(q0: PosRot, q1: PosRot, rho: f32, path_type: PathType) -> Result<Self> {
-        let in_ = Intermediate::from(q0, q1, rho);
-        let params = in_.word(path_type)?;
-
-        Ok(Self::new(q0, rho, params, path_type))
+        Ok(Self {
+            qi: q0,
+            rho,
+            param: Intermediate::from(q0, q1, rho).word(path_type)?,
+            type_: path_type,
+        })
     }
 
     /// Calculate the total distance of any given path.
@@ -827,6 +883,7 @@ impl DubinsPath {
     /// let total_path_length = shortest_path_possible.length();
     /// ```
     #[must_use]
+    #[inline]
     pub fn length(&self) -> f32 {
         (self.param[0] + self.param[1] + self.param[2]) * self.rho
     }
@@ -850,6 +907,7 @@ impl DubinsPath {
     /// let total_segment_length: f32 = shortest_path_possible.segment_length(1);
     /// ```
     #[must_use]
+    #[inline]
     pub fn segment_length(&self, i: usize) -> f32 {
         self.param[i] * self.rho
     }
@@ -875,11 +933,24 @@ impl DubinsPath {
     /// ```
     #[must_use]
     pub fn sample_many(&self, step_distance: f32) -> Vec<PosRot> {
-        let num_samples = (self.length() / step_distance).floor() as usize;
-        let mut results: Vec<PosRot> = Vec::with_capacity(num_samples);
+        debug_assert!(step_distance > 0.);
+        let num_samples = (self.length() / step_distance).floor();
 
-        for i in 0..num_samples {
-            results.push(self.sample(i as f32 * step_distance));
+        // Ignoring cast_sign_loss because we know step_distance should positive
+        // Ignoring cast_possible_truncation because we rounded down using f32::floor()
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        let mut results: Vec<PosRot> = Vec::with_capacity(num_samples as usize);
+
+        let types = self.type_.to_segment_types();
+
+        let qi = from_rot(self.qi);
+        let q1 = Self::segment(self.param[0], qi, types[0]);
+        let q2 = Self::segment(self.param[1], q1, types[1]);
+
+        let mut i = 0.;
+        while i < num_samples {
+            results.push(self.sample_cached(i * step_distance, &types, qi, q1, q2));
+            i += 1.;
         }
 
         results
@@ -898,6 +969,7 @@ impl DubinsPath {
     /// let endpoint: PosRot = shortest_path_possible.endpoint();
     /// ```
     #[must_use]
+    #[inline]
     pub fn endpoint(&self) -> PosRot {
         self.sample(self.length())
     }
@@ -933,6 +1005,11 @@ impl DubinsPath {
         let param2 = self.param[2].min(tprime - param0 - param1);
 
         // copy most of the data
-        Self::new(self.qi, self.rho, [param0, param1, param2], self.type_)
+        Self {
+            qi: self.qi,
+            rho: self.rho,
+            param: [param0, param1, param2],
+            type_: self.type_,
+        }
     }
 }
