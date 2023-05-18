@@ -1,6 +1,6 @@
 [package]
 name = "dubins_paths"
-version = "1.6.0"
+version = "1.7.0"
 authors = ["VirxEC"]
 edition = "2021"
 description = "Rust code for calculating Dubin's Paths"
