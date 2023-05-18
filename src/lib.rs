@@ -82,9 +82,9 @@ pub extern crate glam;
 use core::{f32::consts::PI, fmt, result};
 #[cfg(feature = "glam")]
 use glam::Vec3A;
-use std::error::Error;
 #[cfg(feature = "glam")]
 use std::ops::Add;
+use std::{error::Error, ops::Range};
 
 /// The three segment types in a Dubin's Path
 #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
@@ -931,10 +931,40 @@ impl DubinsPath {
     ///
     /// let samples: Vec<PosRot> = shortest_path_possible.sample_many(step_distance);
     /// ```
+    #[inline]
     #[must_use]
     pub fn sample_many(&self, step_distance: f32) -> Vec<PosRot> {
+        self.sample_many_range(step_distance, 0f32..self.length())
+    }
+
+    /// Get a vec of all the points along the path, within the specified range
+    ///
+    /// # Arguments
+    ///
+    /// * `step_distance`: The distance between each point
+    /// * `range`: The start and end distance of the path to sample
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use core::f32::consts::PI;
+    /// use dubins_paths::{DubinsPath, PosRot};
+    ///
+    /// let shortest_path_possible = DubinsPath::shortest_from([0., 0., PI / 4.].into(), [100., -100., PI * (3. / 4.)].into(), 11.6).unwrap();
+    ///
+    /// // The distance between each sample point
+    /// let step_distance: f32 = 5.;
+    ///
+    /// // Sample between start_distance..end_distance
+    /// let distances = 40f32..120.;
+    ///
+    /// let samples: Vec<PosRot> = shortest_path_possible.sample_many_range(step_distance, distances);
+    /// assert_eq!(samples.len(), 16);
+    /// ```
+    #[must_use]
+    pub fn sample_many_range(&self, step_distance: f32, range: Range<f32>) -> Vec<PosRot> {
         debug_assert!(step_distance > 0.);
-        let num_samples = (self.length() / step_distance).floor();
+        let num_samples = ((range.end - range.start) / step_distance).floor();
 
         // Ignoring cast_sign_loss because we know step_distance should positive
         // Ignoring cast_possible_truncation because we rounded down using f32::floor()
@@ -949,7 +979,7 @@ impl DubinsPath {
 
         let mut i = 0.;
         while i < num_samples {
-            results.push(self.sample_cached(i * step_distance, &types, qi, q1, q2));
+            results.push(self.sample_cached(range.start + i * step_distance, &types, qi, q1, q2));
             i += 1.;
         }
 
