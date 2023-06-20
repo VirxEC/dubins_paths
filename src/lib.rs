@@ -76,6 +76,10 @@
 //! [`sample`]: DubinsPath::sample
 //! [`sample_many`]: DubinsPath::sample_many
 
+/// glam is a crate that provides a vector operations and SIMD acceleration
+/// It is used to provide a more ergonomic API for the DubinsPath struct
+/// 
+/// It requries the `glam` feature to be enabled in order to be used within this crate
 #[cfg(feature = "glam")]
 pub extern crate glam;
 
@@ -214,7 +218,10 @@ impl PosRot {
     #[must_use]
     #[inline]
     pub const fn from_f32(x: f32, y: f32, rot: f32) -> Self {
-        Self { pos: Vec3A::new(x, y, 0.), rot }
+        Self {
+            pos: Vec3A::new(x, y, 0.),
+            rot,
+        }
     }
 }
 
@@ -603,7 +610,11 @@ impl DubinsPath {
         };
 
         // scale the target configuration, translate back to the original starting point
-        [q[0].mul_add(self.rho, self.qi[0]), q[1].mul_add(self.rho, self.qi[1]), mod2pi(q[2])]
+        [
+            q[0].mul_add(self.rho, self.qi[0]),
+            q[1].mul_add(self.rho, self.qi[1]),
+            mod2pi(q[2]),
+        ]
     }
 
     fn sample_cached(&self, t: f32, types: &[SegmentType; 3], qi: PosRot, q1: PosRot, q2: PosRot) -> PosRot {
@@ -617,7 +628,11 @@ impl DubinsPath {
             Self::segment(tprime - self.param[0] - self.param[1], q2, types[2])
         };
 
-        [q[0].mul_add(self.rho, self.qi[0]), q[1].mul_add(self.rho, self.qi[1]), mod2pi(q[2])]
+        [
+            q[0].mul_add(self.rho, self.qi[0]),
+            q[1].mul_add(self.rho, self.qi[1]),
+            mod2pi(q[2]),
+        ]
     }
 }
 
