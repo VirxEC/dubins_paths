@@ -14,19 +14,21 @@ I've ported the code to Rust and documented everything that I could understand. 
 use core::f32::consts::PI;
 use dubins_paths::{DubinsPath, PosRot, Result as DubinsResult};
 
-// PosRot has the format [f32; 3]
-// It represents the car's [x, y, theta]
+// PosRot represents the car's (Pos)ition and (Rot)ation
 // Where x and y are the coordinates on a 2d plane
 // and theta is the orientation of the car's front in radians
 
 // The starting position and rotation
-let q0: PosRot = [0., 0., PI / 4.];
+// Calling 'into' is a requirement for using the glam feature, but PosRot::from_f32 can also be used for const contexts
+// If you're not using the glam feature, calling 'into' is unneeded.
+let q0 = PosRot::from_f32(0., 0., PI / 4.);
 
 // The target end position and rotation
-let q1: PosRot = [100., -100., PI * (3. / 4.)];
+let q1 = [100., -100., PI * (3. / 4.)].into();
 
 // The car's turning radius (must be > 0)
 // This can be calculated by taking a cars angular velocity and dividing it by the car's forward velocity
+// `turn radius = ang_vel / forward_vel`
 let rho: f32 = 11.6;
 
 // Calculate the shortest possible path between these two points with the given turning radius
@@ -40,7 +42,7 @@ DubinsPath has many methods you should look into, such as length, extract_subpat
 
 ## Features
 
-* `glam` - Use a [glam](https://crates.io/crates/glam) compatible API
+* `glam` - Use a [`glam`](https://crates.io/crates/glam) compatible API
 * `fast-math` - Enable the fast-math feature in glam
 
 ## More documentation

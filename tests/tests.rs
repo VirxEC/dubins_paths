@@ -1,9 +1,9 @@
 extern crate dubins_paths;
 
 use core::f32::consts::PI;
-use dubins_paths::{mod2pi, DubinsPath, PathType, PosRot};
+use dubins_paths::{mod2pi, DubinsPath, NoPathError, PathType, PosRot, SegmentType};
 use rand::Rng;
-use std::{panic::panic_any, time::Instant};
+use std::{mem::size_of, panic::panic_any, time::Instant};
 
 const TURN_RADIUS: f32 = 1. / 0.00076;
 
@@ -169,17 +169,29 @@ fn many_path_correctness() {
         let endpoint = path.endpoint();
 
         #[cfg(feature = "glam")]
-        if q1.pos.distance(endpoint.pos) > 1. || angle_2d(q1.rot, endpoint.rot) > 0.1 {
-            println!("Endpoint is different! {:?} | {q1:?} | {endpoint:?}", path.type_);
+        if q1.pos().distance(endpoint.pos()) > 1. || angle_2d(q1.rot(), endpoint.rot()) > 0.1 {
+            println!("Endpoint is different! {:?} | {q1:?} | {endpoint:?}", path.path_type);
             error += 1;
         }
 
         #[cfg(not(feature = "glam"))]
-        if (q1[0] - endpoint[0]).abs() > 1. || (q1[1] - endpoint[1]).abs() > 1. || angle_2d(q1[2], endpoint[2]) > 0.1 {
-            println!("Endpoint is different! {:?} | {q1:?} | {endpoint:?}", path.type_);
+        if (q1.x() - endpoint.x()).abs() > 1.
+            || (q1.x() - endpoint.x()).abs() > 1.
+            || angle_2d(q1.rot(), endpoint.rot()) > 0.1
+        {
+            println!("Endpoint is different! {:?} | {q1:?} | {endpoint:?}", path.path_type);
             error += 1;
         }
     }
 
     assert_eq!(error, 0)
+}
+
+#[test]
+fn size_of_items() {
+    assert_eq!(size_of::<PosRot>(), 12);
+    assert_eq!(size_of::<DubinsPath>(), 32);
+    assert_eq!(size_of::<PathType>(), 1);
+    assert_eq!(size_of::<SegmentType>(), 1);
+    assert_eq!(size_of::<NoPathError>(), 0);
 }

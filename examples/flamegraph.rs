@@ -1,21 +1,21 @@
 use core::{f32::consts::PI, hint::black_box};
 
-use dubins_paths::{DubinsPath, PosRot};
+use dubins_paths::DubinsPath;
 use rand::Rng;
 
 fn main() {
-    let runs = 100_000;
+    let runs = 1_000_000;
 
     let mut thread_rng = rand::thread_rng();
 
     for _ in 0..runs {
-        let q0: PosRot = [
+        let q0 = [
             thread_rng.gen_range(-10000_f32..10000.),
             thread_rng.gen_range(-10000_f32..10000.),
             thread_rng.gen_range((-2. * PI)..(2. * PI)),
         ]
         .into();
-        let q1: PosRot = [
+        let q1 = [
             thread_rng.gen_range(-10000_f32..10000.),
             thread_rng.gen_range(-10000_f32..10000.),
             thread_rng.gen_range((-2. * PI)..(2. * PI)),
