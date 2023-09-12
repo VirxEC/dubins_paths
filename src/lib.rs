@@ -1,4 +1,4 @@
-#![warn(missing_docs, clippy::pedantic)]
+#![warn(missing_docs, clippy::pedantic, clippy::all)]
 #![forbid(unsafe_code)]
 
 //! Calculates a path between two points in space with starting and ending rotation requirements.
@@ -261,7 +261,7 @@ impl PosRot {
     #[must_use]
     #[inline]
     const fn from_rot(rot: Self) -> Self {
-        PosRot::from_f32(0., 0., rot.rot())
+        Self::from_f32(0., 0., rot.rot())
     }
 }
 
@@ -385,7 +385,7 @@ impl Intermediate {
 
     /// Try to calculate a Left Straight Right path
     fn lsr(&self) -> Result<Params> {
-        let p_sq = (2. * self.d).mul_add(self.sa + self.sb, 2.0f32.mul_add(self.c_ab, -2. + self.d_sq));
+        let p_sq = (2. * self.d).mul_add(self.sa + self.sb, 2_f32.mul_add(self.c_ab, -2. + self.d_sq));
 
         if p_sq >= 0. {
             let p = p_sq.sqrt();
@@ -399,7 +399,7 @@ impl Intermediate {
 
     /// Try to calculate a Right Straight Left path
     fn rsl(&self) -> Result<Params> {
-        let p_sq = 2.0f32.mul_add(self.c_ab, -2. + self.d_sq) - (2. * self.d * (self.sa + self.sb));
+        let p_sq = 2_f32.mul_add(self.c_ab, -2. + self.d_sq) - (2. * self.d * (self.sa + self.sb));
 
         if p_sq >= 0. {
             let p = p_sq.sqrt();
@@ -413,10 +413,10 @@ impl Intermediate {
 
     /// Try to calculate a Right Left Right path
     fn rlr(&self) -> Result<Params> {
-        let tmp0 = (2. * self.d).mul_add(self.sa - self.sb, 2.0f32.mul_add(self.c_ab, 6. - self.d_sq)) / 8.;
+        let tmp0 = (2. * self.d).mul_add(self.sa - self.sb, 2_f32.mul_add(self.c_ab, 6. - self.d_sq)) / 8.;
 
         if tmp0.abs() <= 1. {
-            let p = mod2pi(2.0f32.mul_add(PI, -tmp0.acos()));
+            let p = mod2pi(2_f32.mul_add(PI, -tmp0.acos()));
             let phi = (self.ca - self.cb).atan2(self.d - self.sa + self.sb);
             let t = mod2pi(self.alpha - phi + mod2pi(p / 2.));
 
@@ -428,10 +428,10 @@ impl Intermediate {
 
     /// Try to calculate a Left Right Left path
     fn lrl(&self) -> Result<Params> {
-        let tmp0 = (2. * self.d).mul_add(self.sb - self.sa, 2.0f32.mul_add(self.c_ab, 6. - self.d_sq)) / 8.;
+        let tmp0 = (2. * self.d).mul_add(self.sb - self.sa, 2_f32.mul_add(self.c_ab, 6. - self.d_sq)) / 8.;
 
         if tmp0.abs() <= 1. {
-            let p = mod2pi(2.0f32.mul_add(PI, -tmp0.acos()));
+            let p = mod2pi(2_f32.mul_add(PI, -tmp0.acos()));
             let phi = (self.ca - self.cb).atan2(self.d + self.sa - self.sb);
             let t = mod2pi(-self.alpha - phi + p / 2.);
 
@@ -810,7 +810,7 @@ impl DubinsPath {
     #[inline]
     #[must_use]
     pub fn sample_many(&self, step_distance: f32) -> Vec<PosRot> {
-        self.sample_many_range(step_distance, 0f32..self.length())
+        self.sample_many_range(step_distance, 0_f32..self.length())
     }
 
     /// Get a vec of all the points along the path, within the specified range

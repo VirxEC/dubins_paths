@@ -43,7 +43,6 @@ DubinsPath has many methods you should look into, such as length, extract_subpat
 ## Features
 
 * `glam` - Use a [`glam`](https://crates.io/crates/glam) compatible API
-* `fast-math` - Enable the fast-math feature in glam
 
 ## More documentation
 
