@@ -21,15 +21,16 @@
 //! // and theta is the orientation of the car's front in radians
 //!
 //! // The starting position and rotation
-//! // Calling 'into' is a requirement for using the glam feature, but PosRot::from_f32 can also be used for const contexts
-//! // If you're not using the glam feature, calling 'into' is unneeded.
-//! let q0 = PosRot::from_f32(0., 0., PI / 4.);
+//! // PosRot::from_f32 can also be used for const contexts
+//! const q0: PosRot = PosRot::from_f32(0., 0., PI / 4.);
 //!
 //! // The target end position and rotation
+//! // PosRot implements From<[f32; 3]>
 //! let q1 = [100., -100., PI * (3. / 4.)].into();
 //!
 //! // The car's turning radius (must be > 0)
 //! // This can be calculated by taking a cars angular velocity and dividing it by the car's forward velocity
+//! // `turn radius = ang_vel / forward_vel`
 //! let rho: f32 = 11.6;
 //!
 //! // Calculate the shortest possible path between these two points with the given turning radius
@@ -63,14 +64,13 @@
 //! // The path is just over 185 units long
 //! assert_eq!(shortest_path_possible.length().round(), 185.0);
 //!
-//! // There are 37 points spaced 5 units apart
+//! // There are 37 points spaced 5 units apart (37 * 5 = 185)
 //! assert_eq!(samples.len(), 37);
 //! ```
 //!
 //! ## Features
 //!
 //! * `glam` - Use a [`glam`] compatible API
-//! * `fast-math` - Enable the fast-math feature in glam
 //!
 //! [`sample`]: DubinsPath::sample
 //! [`sample_many`]: DubinsPath::sample_many

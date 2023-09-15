@@ -19,11 +19,11 @@ use dubins_paths::{DubinsPath, PosRot, Result as DubinsResult};
 // and theta is the orientation of the car's front in radians
 
 // The starting position and rotation
-// Calling 'into' is a requirement for using the glam feature, but PosRot::from_f32 can also be used for const contexts
-// If you're not using the glam feature, calling 'into' is unneeded.
-let q0 = PosRot::from_f32(0., 0., PI / 4.);
+// PosRot::from_f32 can also be used for const contexts
+const q0: PosRot = PosRot::from_f32(0., 0., PI / 4.);
 
 // The target end position and rotation
+// PosRot implements From<[f32; 3]>
 let q1 = [100., -100., PI * (3. / 4.)].into();
 
 // The car's turning radius (must be > 0)
