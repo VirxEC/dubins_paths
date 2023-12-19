@@ -81,11 +81,15 @@
 #[cfg(feature = "glam")]
 pub extern crate glam;
 
-use core::{f32::consts::PI, fmt, result};
+use core::{
+    f32::consts::PI,
+    fmt,
+    ops::{Add, Range},
+    result,
+};
 #[cfg(feature = "glam")]
 use glam::Vec2;
-use std::ops::Add;
-use std::{error::Error, ops::Range};
+use std::error::Error;
 
 /// The three segment types in a Dubin's Path
 #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
@@ -173,6 +177,7 @@ pub type Result<T> = result::Result<T, NoPathError>;
 
 /// The car's position and rotation in radians
 #[cfg(not(feature = "glam"))]
+#[repr(transparent)]
 #[derive(Clone, Copy, Debug, Default)]
 pub struct PosRot([f32; 3]);
 

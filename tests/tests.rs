@@ -148,18 +148,16 @@ fn many_path_correctness() {
     let mut error = 0;
 
     for _ in 0..runs {
-        let q0: PosRot = [
+        let q0 = PosRot::from_f32(
             thread_rng.gen_range(-10000_f32..10000.),
             thread_rng.gen_range(-10000_f32..10000.),
             thread_rng.gen_range((-2. * PI)..(2. * PI)),
-        ]
-        .into();
-        let q1: PosRot = [
+        );
+        let q1 = PosRot::from_f32(
             thread_rng.gen_range(-10000_f32..10000.),
             thread_rng.gen_range(-10000_f32..10000.),
             thread_rng.gen_range((-2. * PI)..(2. * PI)),
-        ]
-        .into();
+        );
 
         let path = match DubinsPath::shortest_from(q0, q1, TURN_RADIUS) {
             Ok(p) => p,
@@ -170,7 +168,7 @@ fn many_path_correctness() {
 
         #[cfg(feature = "glam")]
         if q1.pos().distance(endpoint.pos()) > 1. || angle_2d(q1.rot(), endpoint.rot()) > 0.1 {
-            println!("Endpoint is different! {:?} | {q1:?} | {endpoint:?}", path.path_type);
+            println!("Endpoint is different! {:?} | {q0:?} | {q1:?} | {endpoint:?}", path.path_type);
             error += 1;
         }
 
@@ -179,7 +177,7 @@ fn many_path_correctness() {
             || (q1.x() - endpoint.x()).abs() > 1.
             || angle_2d(q1.rot(), endpoint.rot()) > 0.1
         {
-            println!("Endpoint is different! {:?} | {q1:?} | {endpoint:?}", path.path_type);
+            println!("Endpoint is different! {:?} | {q0:?} | {q1:?} | {endpoint:?}", path.path_type);
             error += 1;
         }
     }
