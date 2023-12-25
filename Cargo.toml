@@ -1,6 +1,6 @@
 [package]
 name = "dubins_paths"
-version = "2.1.0"
+version = "2.1.1"
 authors = ["VirxEC"]
 edition = "2021"
 description = "Rust code for calculating Dubin's Paths"
@@ -26,3 +26,6 @@ codegen-units = 1
 lto = true
 debug = true
 panic = "abort"
+
+[package.metadata.docs.rs]
+all-features = true
