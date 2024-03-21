@@ -1,4 +1,5 @@
-#![warn(missing_docs, clippy::pedantic, clippy::all)]
+#![warn(missing_docs, clippy::pedantic, clippy::all, clippy::nursery)]
+#![allow(clippy::suboptimal_flops)]
 #![forbid(unsafe_code)]
 
 //! Calculates a path between two points in space with starting and ending rotation requirements.
