@@ -1,3 +1,5 @@
+#![allow(clippy::incompatible_msrv)]
+
 use core::{f32::consts::PI, hint::black_box};
 
 use dubins_paths::DubinsPath;

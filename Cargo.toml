@@ -9,6 +9,7 @@ repository = "https://github.com/VirxEC/dubins_paths"
 license = "MIT"
 keywords = ["rocket-league", "rlbot", "physics", "simulation", "dubin"]
 categories = ["science", "simulation", "algorithms"]
+rust-version = "1.56.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
