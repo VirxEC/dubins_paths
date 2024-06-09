@@ -846,12 +846,6 @@ impl DubinsPath {
     #[must_use]
     pub fn sample_many_range(&self, step_distance: f32, range: Range<f32>) -> Vec<PosRot> {
         debug_assert!(step_distance > 0.);
-        let num_samples = ((range.end - range.start) / step_distance).floor();
-
-        // Ignoring cast_sign_loss because we know step_distance should positive
-        // Ignoring cast_possible_truncation because we rounded down using f32::floor()
-        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-        let mut results: Vec<PosRot> = Vec::with_capacity(num_samples as usize);
 
         let types = self.path_type.to_segment_types();
 
@@ -859,13 +853,20 @@ impl DubinsPath {
         let q1 = Self::segment(self.param[0], qi, types[0]);
         let q2 = Self::segment(self.param[1], q1, types[1]);
 
-        let mut i = 0.;
-        while i < num_samples {
-            results.push(self.sample_cached(i * step_distance + range.start, types, qi, q1, q2));
-            i += 1.;
-        }
+        // Ignoring cast_sign_loss because we know step_distance should positive
+        // Ignoring cast_possible_truncation because we rounded down using f32::floor()
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        let num_samples = ((range.end - range.start) / step_distance).floor() as u32;
 
-        results
+        (0..num_samples)
+            .map(|i| {
+                // Since the value originally comes from a f32,
+                // this should be fine
+                #[allow(clippy::cast_precision_loss)]
+                (i as f32 * step_distance + range.start)
+            })
+            .map(|t| self.sample_cached(t, types, qi, q1, q2))
+            .collect()
     }
 
     /// Get the endpoint of the path
