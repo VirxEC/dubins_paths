@@ -84,13 +84,11 @@ pub extern crate glam;
 
 use core::{
     f32::consts::PI,
-    fmt,
     ops::{Add, Range},
     result,
 };
 #[cfg(feature = "glam")]
 use glam::Vec2;
-use std::error::Error;
 
 /// The three segment types in a Dubin's Path
 #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
@@ -159,16 +157,9 @@ impl PathType {
 }
 
 /// The error returned when a path is not found
-#[derive(Copy, Clone, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(Copy, Clone, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd, thiserror::Error)]
+#[error("No path exists with given parameters")]
 pub struct NoPathError;
-
-impl fmt::Display for NoPathError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "No path exists with given parameters")
-    }
-}
-
-impl Error for NoPathError {}
 
 /// A type that allows the function to return either
 ///
