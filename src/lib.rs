@@ -176,83 +176,67 @@ impl Error for NoPathError {}
 pub type Result<T> = result::Result<T, NoPathError>;
 
 /// The car's position and rotation in radians
-#[cfg(not(feature = "glam"))]
-#[repr(transparent)]
 #[derive(Clone, Copy, Debug, Default)]
-pub struct PosRot([f32; 3]);
+pub struct PosRot {
+    #[cfg(not(feature = "glam"))]
+    position: [f32; 2],
+    #[cfg(feature = "glam")]
+    position: Vec2,
+    rotation: f32,
+}
 
-#[cfg(not(feature = "glam"))]
 impl PosRot {
     /// Create a new `PosRot` from a position and rotation
     #[must_use]
-    pub const fn from_f32(x: f32, y: f32, rot: f32) -> Self {
-        Self([x, y, rot])
+    pub const fn from_f32(x: f32, y: f32, rotation: f32) -> Self {
+        #[cfg(not(feature = "glam"))]
+        let position = [x, y];
+        #[cfg(feature = "glam")]
+        let position = Vec2::new(x, y);
+
+        Self { position, rotation }
     }
 
     /// Get the x position
     #[must_use]
     pub const fn x(&self) -> f32 {
-        self.0[0]
+        #[cfg(not(feature = "glam"))]
+        return self.position[0];
+
+        #[cfg(feature = "glam")]
+        return self.position.x;
     }
 
     /// Get the y position
     #[must_use]
     pub const fn y(&self) -> f32 {
-        self.0[1]
+        #[cfg(not(feature = "glam"))]
+        return self.position[1];
+
+        #[cfg(feature = "glam")]
+        return self.position.y;
     }
 
     /// Get the rotation
     #[must_use]
     pub const fn rot(&self) -> f32 {
-        self.0[2]
+        self.rotation
     }
-}
 
-/// The car's position and rotation in radians
-#[cfg(feature = "glam")]
-#[derive(Clone, Copy, Debug, Default)]
-pub struct PosRot(Vec2, f32);
-
-#[cfg(feature = "glam")]
-impl PosRot {
     /// Create a new `PosRot` from a `Vec2` and rotation
     #[must_use]
-    pub const fn new(pos: Vec2, rot: f32) -> Self {
-        Self(pos, rot)
-    }
-
-    /// Create a new `PosRot` from a position and rotation
-    #[must_use]
-    pub const fn from_f32(x: f32, y: f32, rot: f32) -> Self {
-        Self(Vec2::new(x, y), rot)
+    #[cfg(feature = "glam")]
+    pub const fn new(position: Vec2, rotation: f32) -> Self {
+        Self { position, rotation }
     }
 
     /// Get the position
     #[must_use]
+    #[cfg(feature = "glam")]
     pub const fn pos(&self) -> Vec2 {
-        self.0
+        self.position
     }
 
-    /// Get the x position
-    #[must_use]
-    pub const fn x(&self) -> f32 {
-        self.0.x
-    }
-
-    /// Get the y position
-    #[must_use]
-    pub const fn y(&self) -> f32 {
-        self.0.y
-    }
-
-    /// Get the rotation
-    #[must_use]
-    pub const fn rot(&self) -> f32 {
-        self.1
-    }
-}
-
-impl PosRot {
     #[must_use]
     const fn from_rot(rot: Self) -> Self {
         Self::from_f32(0., 0., rot.rot())
