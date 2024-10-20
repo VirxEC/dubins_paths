@@ -1,6 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use dubins_paths::{DubinsPath, PathType, PosRot};
-use std::time::Duration;
 
 const TURN_RADIUS: f32 = 1. / 0.00076;
 
@@ -56,9 +55,11 @@ fn bench_many_sample(c: &mut Criterion) {
     c.bench_function("many_sample", |b| b.iter(|| path.sample_many(black_box(STEP_DISTANCE))));
 }
 
-criterion_group! {
-    name = benches;
-    config = Criterion::default().measurement_time(Duration::from_secs(10));
-    targets = bench_shortest_csc_path, bench_shortest_ccc_path, bench_shortest_path, bench_many_sample
-}
+criterion_group!(
+    benches,
+    bench_shortest_csc_path,
+    bench_shortest_ccc_path,
+    bench_shortest_path,
+    bench_many_sample
+);
 criterion_main!(benches);
