@@ -146,7 +146,6 @@ impl PathType {
 
     /// Convert the path type an array of it's [`SegmentType`]s
     #[must_use]
-    #[inline]
     pub const fn to_segment_types(&self) -> [SegmentType; 3] {
         match self {
             Self::LSL => SegmentType::LSL,
@@ -186,28 +185,24 @@ pub struct PosRot([f32; 3]);
 impl PosRot {
     /// Create a new `PosRot` from a position and rotation
     #[must_use]
-    #[inline]
     pub const fn from_f32(x: f32, y: f32, rot: f32) -> Self {
         Self([x, y, rot])
     }
 
     /// Get the x position
     #[must_use]
-    #[inline]
     pub const fn x(&self) -> f32 {
         self.0[0]
     }
 
     /// Get the y position
     #[must_use]
-    #[inline]
     pub const fn y(&self) -> f32 {
         self.0[1]
     }
 
     /// Get the rotation
     #[must_use]
-    #[inline]
     pub const fn rot(&self) -> f32 {
         self.0[2]
     }
@@ -222,42 +217,36 @@ pub struct PosRot(Vec2, f32);
 impl PosRot {
     /// Create a new `PosRot` from a `Vec2` and rotation
     #[must_use]
-    #[inline]
     pub const fn new(pos: Vec2, rot: f32) -> Self {
         Self(pos, rot)
     }
 
     /// Create a new `PosRot` from a position and rotation
     #[must_use]
-    #[inline]
     pub const fn from_f32(x: f32, y: f32, rot: f32) -> Self {
         Self(Vec2::new(x, y), rot)
     }
 
     /// Get the position
     #[must_use]
-    #[inline]
     pub const fn pos(&self) -> Vec2 {
         self.0
     }
 
     /// Get the x position
     #[must_use]
-    #[inline]
     pub const fn x(&self) -> f32 {
         self.0.x
     }
 
     /// Get the y position
     #[must_use]
-    #[inline]
     pub const fn y(&self) -> f32 {
         self.0.y
     }
 
     /// Get the rotation
     #[must_use]
-    #[inline]
     pub const fn rot(&self) -> f32 {
         self.1
     }
@@ -265,7 +254,6 @@ impl PosRot {
 
 impl PosRot {
     #[must_use]
-    #[inline]
     const fn from_rot(rot: Self) -> Self {
         Self::from_f32(0., 0., rot.rot())
     }
@@ -273,14 +261,12 @@ impl PosRot {
 
 impl Add<Self> for PosRot {
     type Output = Self;
-    #[inline]
     fn add(self, rhs: Self) -> Self {
         Self::from_f32(self.x() + rhs.x(), self.y() + rhs.y(), self.rot() + rhs.rot())
     }
 }
 
 impl From<[f32; 3]> for PosRot {
-    #[inline]
     fn from(posrot: [f32; 3]) -> Self {
         Self::from_f32(posrot[0], posrot[1], posrot[2])
     }
@@ -469,7 +455,6 @@ impl Intermediate {
     ///
     /// assert!(word.is_ok());
     /// ```
-    #[inline]
     pub fn word(&self, path_type: PathType) -> Result<Params> {
         match path_type {
             PathType::LSL => self.lsl(),
@@ -488,7 +473,6 @@ impl Intermediate {
 ///
 /// * `theta`: The value to be modded
 #[must_use]
-#[inline]
 pub fn mod2pi(theta: f32) -> f32 {
     theta.rem_euclid(2. * PI)
 }
@@ -548,7 +532,6 @@ impl DubinsPath {
     }
 
     /// Scale the target configuration, translate back to the original starting point
-    #[inline]
     fn offset(&self, q: PosRot) -> PosRot {
         PosRot::from_f32(
             q.x() * self.rho + self.qi.x(),
@@ -705,7 +688,6 @@ impl DubinsPath {
     ///
     /// assert!(shortest_path_possible.is_ok());
     /// ```
-    #[inline]
     pub fn shortest_from(q0: PosRot, q1: PosRot, rho: f32) -> Result<Self> {
         Self::shortest_in(q0, q1, rho, &PathType::ALL)
     }
@@ -742,7 +724,6 @@ impl DubinsPath {
     ///
     /// assert!(path.is_ok());
     /// ```
-    #[inline]
     pub fn new(q0: PosRot, q1: PosRot, rho: f32, path_type: PathType) -> Result<Self> {
         Ok(Self {
             qi: q0,
@@ -765,7 +746,6 @@ impl DubinsPath {
     /// let total_path_length = shortest_path_possible.length();
     /// ```
     #[must_use]
-    #[inline]
     pub fn length(&self) -> f32 {
         (self.param[0] + self.param[1] + self.param[2]) * self.rho
     }
@@ -789,7 +769,6 @@ impl DubinsPath {
     /// let total_segment_length: f32 = shortest_path_possible.segment_length(1);
     /// ```
     #[must_use]
-    #[inline]
     pub fn segment_length(&self, i: usize) -> f32 {
         self.param[i] * self.rho
     }
@@ -813,7 +792,6 @@ impl DubinsPath {
     ///
     /// let samples: Vec<PosRot> = shortest_path_possible.sample_many(step_distance);
     /// ```
-    #[inline]
     #[must_use]
     pub fn sample_many(&self, step_distance: f32) -> Vec<PosRot> {
         self.sample_many_range(step_distance, 0_f32..self.length())
@@ -882,7 +860,6 @@ impl DubinsPath {
     /// let endpoint: PosRot = shortest_path_possible.endpoint();
     /// ```
     #[must_use]
-    #[inline]
     pub fn endpoint(&self) -> PosRot {
         self.sample(self.length())
     }
