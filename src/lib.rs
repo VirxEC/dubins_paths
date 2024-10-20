@@ -917,7 +917,7 @@ mod tests {
     #[test]
     fn mod2pi_test() {
         assert!(mod2pi(-f32::from_bits(1)) >= 0.);
-        assert_eq!(mod2pi(2. * PI), 0.);
+        assert!(mod2pi(2. * PI).abs() < f32::EPSILON);
     }
 
     #[test]
@@ -955,9 +955,8 @@ mod tests {
                 thread_rng.gen_range((-2. * PI)..(2. * PI)),
             );
 
-            let path = match DubinsPath::shortest_from(q0, q1, TURN_RADIUS) {
-                Ok(p) => p,
-                Err(_) => continue,
+            let Ok(path) = DubinsPath::shortest_from(q0, q1, TURN_RADIUS) else {
+                continue;
             };
 
             let endpoint = path.endpoint();
@@ -978,7 +977,7 @@ mod tests {
             }
         }
 
-        assert_eq!(error, 0)
+        assert_eq!(error, 0);
     }
 
     #[test]
