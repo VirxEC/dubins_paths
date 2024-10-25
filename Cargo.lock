@@ -153,7 +153,7 @@ dependencies = [
 
 [[package]]
 name = "dubins_paths"
-version = "2.4.1"
+version = "2.4.2"
 dependencies = [
  "criterion",
  "glam",
