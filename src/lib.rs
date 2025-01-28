@@ -142,7 +142,14 @@ impl PathType {
     /// All of the "Corner Corner Corner" path types
     pub const CCC: [Self; 2] = [Self::RLR, Self::LRL];
     /// All of the path types
-    pub const ALL: [Self; 6] = [Self::LSL, Self::LSR, Self::RSL, Self::RSR, Self::RLR, Self::LRL];
+    pub const ALL: [Self; 6] = [
+        Self::LSL,
+        Self::LSR,
+        Self::RSL,
+        Self::RSR,
+        Self::RLR,
+        Self::LRL,
+    ];
 
     /// Convert the path type an array of it's [`SegmentType`]s
     #[must_use]
@@ -262,7 +269,11 @@ impl PosRot {
 impl Add<Self> for PosRot {
     type Output = Self;
     fn add(self, rhs: Self) -> Self {
-        Self::from_f32(self.x() + rhs.x(), self.y() + rhs.y(), self.rot() + rhs.rot())
+        Self::from_f32(
+            self.x() + rhs.x(),
+            self.y() + rhs.y(),
+            self.rot() + rhs.rot(),
+        )
     }
 }
 
@@ -355,7 +366,11 @@ impl Intermediate {
             let tmp0 = self.d + self.sa - self.sb;
             let tmp1 = (self.cb - self.ca).atan2(tmp0);
 
-            Ok([mod2pi(tmp1 - self.alpha), p_sq.sqrt(), mod2pi(self.beta - tmp1)])
+            Ok([
+                mod2pi(tmp1 - self.alpha),
+                p_sq.sqrt(),
+                mod2pi(self.beta - tmp1),
+            ])
         } else {
             Err(NoPathError)
         }
@@ -369,7 +384,11 @@ impl Intermediate {
             let tmp0 = self.d - self.sa + self.sb;
             let tmp1 = (self.ca - self.cb).atan2(tmp0);
 
-            Ok([mod2pi(self.alpha - tmp1), p_sq.sqrt(), mod2pi(tmp1 - self.beta)])
+            Ok([
+                mod2pi(self.alpha - tmp1),
+                p_sq.sqrt(),
+                mod2pi(tmp1 - self.beta),
+            ])
         } else {
             Err(NoPathError)
         }
@@ -377,13 +396,18 @@ impl Intermediate {
 
     /// Try to calculate a Left Straight Right path
     fn lsr(&self) -> Result<Params> {
-        let p_sq = (2. * self.d).mul_add(self.sa + self.sb, 2_f32.mul_add(self.c_ab, -2. + self.d_sq));
+        let p_sq =
+            (2. * self.d).mul_add(self.sa + self.sb, 2_f32.mul_add(self.c_ab, -2. + self.d_sq));
 
         if p_sq >= 0. {
             let p = p_sq.sqrt();
             let tmp0 = (-self.ca - self.cb).atan2(self.d + self.sa + self.sb) - (-2_f32).atan2(p);
 
-            Ok([mod2pi(tmp0 - self.alpha), p, mod2pi(tmp0 - mod2pi(self.beta))])
+            Ok([
+                mod2pi(tmp0 - self.alpha),
+                p,
+                mod2pi(tmp0 - mod2pi(self.beta)),
+            ])
         } else {
             Err(NoPathError)
         }
@@ -405,7 +429,8 @@ impl Intermediate {
 
     /// Try to calculate a Right Left Right path
     fn rlr(&self) -> Result<Params> {
-        let tmp0 = (2. * self.d).mul_add(self.sa - self.sb, 2_f32.mul_add(self.c_ab, 6. - self.d_sq)) / 8.;
+        let tmp0 =
+            (2. * self.d).mul_add(self.sa - self.sb, 2_f32.mul_add(self.c_ab, 6. - self.d_sq)) / 8.;
 
         if tmp0.abs() <= 1. {
             let p = mod2pi(2_f32.mul_add(PI, -tmp0.acos()));
@@ -420,7 +445,8 @@ impl Intermediate {
 
     /// Try to calculate a Left Right Left path
     fn lrl(&self) -> Result<Params> {
-        let tmp0 = (2. * self.d).mul_add(self.sb - self.sa, 2_f32.mul_add(self.c_ab, 6. - self.d_sq)) / 8.;
+        let tmp0 =
+            (2. * self.d).mul_add(self.sb - self.sa, 2_f32.mul_add(self.c_ab, 6. - self.d_sq)) / 8.;
 
         if tmp0.abs() <= 1. {
             let p = mod2pi(2_f32.mul_add(PI, -tmp0.acos()));
@@ -523,8 +549,12 @@ impl DubinsPath {
         let (st, ct) = qi.rot().sin_cos();
 
         let qt = match type_ {
-            SegmentType::L => PosRot::from_f32((qi.rot() + t).sin() - st, -(qi.rot() + t).cos() + ct, t),
-            SegmentType::R => PosRot::from_f32(-(qi.rot() - t).sin() + st, (qi.rot() - t).cos() - ct, -t),
+            SegmentType::L => {
+                PosRot::from_f32((qi.rot() + t).sin() - st, -(qi.rot() + t).cos() + ct, t)
+            }
+            SegmentType::R => {
+                PosRot::from_f32(-(qi.rot() - t).sin() + st, (qi.rot() - t).cos() - ct, -t)
+            }
             SegmentType::S => PosRot::from_f32(ct * t, st * t, 0.),
         };
 
@@ -583,7 +613,14 @@ impl DubinsPath {
         self.offset(q)
     }
 
-    fn sample_cached(&self, t: f32, types: [SegmentType; 3], qi: PosRot, q1: PosRot, q2: PosRot) -> PosRot {
+    fn sample_cached(
+        &self,
+        t: f32,
+        types: [SegmentType; 3],
+        qi: PosRot,
+        q1: PosRot,
+        q2: PosRot,
+    ) -> PosRot {
         let tprime = t / self.rho;
 
         let q = if tprime < self.param[0] {
@@ -634,10 +671,11 @@ impl DubinsPath {
     pub fn shortest_in(q0: PosRot, q1: PosRot, rho: f32, types: &[PathType]) -> Result<Self> {
         let intermediate_results = Intermediate::new(q0, q1, rho);
 
-        let params = types
-            .iter()
-            .copied()
-            .flat_map(|path_type| intermediate_results.word(path_type).map(|param| (param, path_type)));
+        let params = types.iter().copied().flat_map(|path_type| {
+            intermediate_results
+                .word(path_type)
+                .map(|param| (param, path_type))
+        });
 
         let mut best = Err(NoPathError);
         let mut best_sum = f32::INFINITY;
@@ -932,7 +970,9 @@ mod tests {
 
         #[cfg(not(feature = "glam"))]
         fn angle_2d(vec1: f32, vec2: f32) -> f32 {
-            (vec1.cos() * vec1.cos() + vec2.sin() * vec2.sin()).clamp(-1., 1.).acos()
+            (vec1.cos() * vec1.cos() + vec2.sin() * vec2.sin())
+                .clamp(-1., 1.)
+                .acos()
         }
 
         // Test that the path is correct for a number of random configurations.
@@ -940,19 +980,19 @@ mod tests {
         // If the path is found the sampled endpoint is different from the specified endpoint, then fail.
 
         let runs = 50_000;
-        let mut thread_rng = rand::thread_rng();
+        let mut thread_rng = rand::rng();
         let mut error = 0;
 
         for _ in 0..runs {
             let q0 = PosRot::from_f32(
-                thread_rng.gen_range(-10000_f32..10000.),
-                thread_rng.gen_range(-10000_f32..10000.),
-                thread_rng.gen_range((-2. * PI)..(2. * PI)),
+                thread_rng.random_range(-10000_f32..10000.),
+                thread_rng.random_range(-10000_f32..10000.),
+                thread_rng.random_range((-2. * PI)..(2. * PI)),
             );
             let q1 = PosRot::from_f32(
-                thread_rng.gen_range(-10000_f32..10000.),
-                thread_rng.gen_range(-10000_f32..10000.),
-                thread_rng.gen_range((-2. * PI)..(2. * PI)),
+                thread_rng.random_range(-10000_f32..10000.),
+                thread_rng.random_range(-10000_f32..10000.),
+                thread_rng.random_range((-2. * PI)..(2. * PI)),
             );
 
             let Ok(path) = DubinsPath::shortest_from(q0, q1, TURN_RADIUS) else {
@@ -963,7 +1003,10 @@ mod tests {
 
             #[cfg(feature = "glam")]
             if q1.pos().distance(endpoint.pos()) > 1. || angle_2d(q1.rot(), endpoint.rot()) > 0.1 {
-                println!("Endpoint is different! {:?} | {q0:?} | {q1:?} | {endpoint:?}", path.path_type);
+                println!(
+                    "Endpoint is different! {:?} | {q0:?} | {q1:?} | {endpoint:?}",
+                    path.path_type
+                );
                 error += 1;
             }
 
@@ -972,7 +1015,10 @@ mod tests {
                 || (q1.x() - endpoint.x()).abs() > 1.
                 || angle_2d(q1.rot(), endpoint.rot()) > 0.1
             {
-                println!("Endpoint is different! {:?} | {q0:?} | {q1:?} | {endpoint:?}", path.path_type);
+                println!(
+                    "Endpoint is different! {:?} | {q0:?} | {q1:?} | {endpoint:?}",
+                    path.path_type
+                );
                 error += 1;
             }
         }

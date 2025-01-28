@@ -8,29 +8,29 @@ use rand::Rng;
 fn main() {
     let runs = 1_000_000;
 
-    let mut thread_rng = rand::thread_rng();
+    let mut thread_rng = rand::rng();
 
     for _ in 0..runs {
         let q0 = [
-            thread_rng.gen_range(-10000_f32..10000.),
-            thread_rng.gen_range(-10000_f32..10000.),
-            thread_rng.gen_range((-2. * PI)..(2. * PI)),
+            thread_rng.random_range(-10000_f32..10000.),
+            thread_rng.random_range(-10000_f32..10000.),
+            thread_rng.random_range((-2. * PI)..(2. * PI)),
         ]
         .into();
         let q1 = [
-            thread_rng.gen_range(-10000_f32..10000.),
-            thread_rng.gen_range(-10000_f32..10000.),
-            thread_rng.gen_range((-2. * PI)..(2. * PI)),
+            thread_rng.random_range(-10000_f32..10000.),
+            thread_rng.random_range(-10000_f32..10000.),
+            thread_rng.random_range((-2. * PI)..(2. * PI)),
         ]
         .into();
 
-        let rho = thread_rng.gen_range(600f32..3000.);
+        let rho = thread_rng.random_range(600f32..3000.);
 
         let Ok(path) = DubinsPath::shortest_from(black_box(q0), q1, rho) else {
             continue;
         };
 
-        let step_distance = thread_rng.gen_range(5f32..(rho / 100.));
+        let step_distance = thread_rng.random_range(5f32..(rho / 100.));
         let _ = path.sample_many(black_box(step_distance));
     }
 }

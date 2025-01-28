@@ -14,8 +14,14 @@ fn bench_shortest_path_type(c: &mut Criterion, name: &str, path_types: &[PathTyp
 
     c.bench_function(name, |b| {
         b.iter(|| {
-            DubinsPath::shortest_in(black_box(q0), black_box(q1), black_box(TURN_RADIUS), black_box(path_types)).unwrap()
-        })
+            DubinsPath::shortest_in(
+                black_box(q0),
+                black_box(q1),
+                black_box(TURN_RADIUS),
+                black_box(path_types),
+            )
+            .unwrap()
+        });
     });
 }
 
@@ -31,7 +37,9 @@ fn bench_shortest_path(c: &mut Criterion) {
     let (q0, q1) = setup_benchmark();
 
     c.bench_function("shortest_path", |b| {
-        b.iter(|| DubinsPath::shortest_from(black_box(q0), black_box(q1), black_box(TURN_RADIUS)).unwrap())
+        b.iter(|| {
+            DubinsPath::shortest_from(black_box(q0), black_box(q1), black_box(TURN_RADIUS)).unwrap()
+        });
     });
 }
 
@@ -40,7 +48,9 @@ fn bench_many_sample(c: &mut Criterion) {
     let (q0, q1) = setup_benchmark();
     let path = DubinsPath::shortest_from(q0, q1, TURN_RADIUS).unwrap();
 
-    c.bench_function("many_sample", |b| b.iter(|| path.sample_many(black_box(STEP_DISTANCE))));
+    c.bench_function("many_sample", |b| {
+        b.iter(|| path.sample_many(black_box(STEP_DISTANCE)));
+    });
 }
 
 criterion_group!(
