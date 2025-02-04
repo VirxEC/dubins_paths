@@ -42,6 +42,7 @@ DubinsPath has many methods you should look into, such as length, extract_subpat
 ## Features
 
 * `glam` - Use a [`glam`](https://crates.io/crates/glam) compatible API
+* `f64` - By default, the library uses `f32` precision and the equivalent `glam::f32` structs if that feature is enabled. Setting `f64` changes all numbers to 64-bit precision, and uses `glam::f64` vector types
 
 ## More documentation
 
