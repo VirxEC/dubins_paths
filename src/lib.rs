@@ -911,9 +911,10 @@ impl DubinsPath {
 
         (0..num_samples)
             .map(|i| {
-                // Since the value originally comes from a f32,
+                // Since the value originally comes from FloatType,
                 // this should be fine
                 #[allow(clippy::cast_precision_loss)]
+                #[allow(clippy::cast_lossless)]
                 (i as FloatType * step_distance + range.start)
             })
             .map(|t| self.sample_cached(t, types, qi, q1, q2))
