@@ -1087,9 +1087,9 @@ mod tests {
 
     macro_rules! test_pos_rot_equivalence {
         ($a:expr, $b:expr, $epsilon_diff:expr) => {
-            approx::assert_relative_eq!($a.x(), $b.x(), epsilon = $epsilon_diff);
-            approx::assert_relative_eq!($a.y(), $b.y(), epsilon = $epsilon_diff);
-            approx::assert_relative_eq!($a.rot(), $b.rot(), epsilon = $epsilon_diff);
+            approx::assert_ulps_eq!($a.x(), $b.x(), max_ulps = 4, epsilon = $epsilon_diff);
+            approx::assert_ulps_eq!($a.y(), $b.y(), max_ulps = 4, epsilon = $epsilon_diff);
+            approx::assert_ulps_eq!($a.rot(), $b.rot(), max_ulps = 4, epsilon = $epsilon_diff);
         };
     }
 
