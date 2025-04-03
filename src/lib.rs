@@ -1082,4 +1082,37 @@ mod tests {
         assert_eq!(size_of::<SegmentType>(), 1);
         assert_eq!(size_of::<NoPathError>(), 0);
     }
+
+    macro_rules! test_pos_rot_equivalence {
+        ($a:expr, $b:expr, $epsilon_diff:expr) => {
+            approx::assert_relative_eq!($a.x(), $b.x(), epsilon = $epsilon_diff);
+            approx::assert_relative_eq!($a.y(), $b.y(), epsilon = $epsilon_diff);
+            approx::assert_relative_eq!($a.rot(), $b.rot(), epsilon = $epsilon_diff);
+        };
+    }
+
+    #[test]
+    fn sample_many_correctness() {
+        let start_pose = PosRot::from_floats(0.0, 8.5, 1.5707963267948966);
+        let goal_pose =
+            PosRot::from_floats(-3.5211267605633907, 23.779342723004696, 2.79308931595238);
+        let rho = 8.0;
+
+        let path = DubinsPath::shortest_from(start_pose, goal_pose, rho).expect("Path Error");
+
+        // f32 seems to have more precision issues in this space. 64bit calcs work well enough with epsilon though
+        #[cfg(feature = "f64")]
+        let epsilon = FloatType::EPSILON;
+        #[cfg(not(feature = "f64"))]
+        let epsilon = 0.000001_f32;
+
+        test_pos_rot_equivalence!(&path.qi, &start_pose, epsilon);
+        test_pos_rot_equivalence!(&path.endpoint(), &goal_pose, epsilon);
+
+        let interpolated = path.sample_many(0.4);
+        let first_point = interpolated.first().unwrap();
+        let last_pose = interpolated.last().unwrap();
+        test_pos_rot_equivalence!(first_point, &start_pose, epsilon);
+        test_pos_rot_equivalence!(last_pose, &goal_pose, epsilon);
+    }
 }
