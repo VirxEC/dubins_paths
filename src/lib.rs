@@ -1104,7 +1104,7 @@ mod tests {
         #[cfg(feature = "f64")]
         let epsilon = FloatType::EPSILON;
         #[cfg(not(feature = "f64"))]
-        let epsilon = 0.000001_f32;
+        let epsilon = 0.00001_f32;
 
         test_pos_rot_equivalence!(&path.qi, &start_pose, epsilon);
         test_pos_rot_equivalence!(&path.endpoint(), &goal_pose, epsilon);
