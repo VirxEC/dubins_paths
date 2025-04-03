@@ -63,8 +63,8 @@
 //! // The path is just over 185 units long
 //! assert_eq!(shortest_path_possible.length().round(), 185.0);
 //!
-//! // There are 37 points spaced 5 units apart (37 * 5 = 185)
-//! assert_eq!(samples.len(), 37);
+//! // There are 37 points spaced 5 units apart (37 * 5 = 185), + 1 more for the endpoint
+//! assert_eq!(samples.len(), 38);
 //! ```
 //!
 //! ## Features
@@ -864,7 +864,9 @@ impl DubinsPath {
     #[must_use]
     pub fn sample_many(&self, step_distance: FloatType) -> Vec<PosRot> {
         let zero: FloatType = 0.0;
-        self.sample_many_range(step_distance, zero..self.length())
+        let mut samples = self.sample_many_range(step_distance, zero..self.length());
+        samples.push(self.sample(self.length()));
+        samples
     }
 
     /// Get a vec of all the points along the path, within the specified range
