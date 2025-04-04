@@ -1,6 +1,7 @@
 #![warn(missing_docs, clippy::pedantic, clippy::all, clippy::nursery)]
 #![allow(clippy::suboptimal_flops)]
 #![forbid(unsafe_code)]
+#![cfg_attr(not(feature = "std"), no_std)]
 
 //! Calculates a path between two points in space with starting and ending rotation requirements.
 //!
@@ -58,21 +59,34 @@
 //! // The distance between each sample point
 //! let step_distance = 5.;
 //!
-//! let samples: Vec<PosRot> = shortest_path_possible.sample_many(step_distance);
+//! #[cfg(feature = "alloc")]
+//! {
+//!     let samples: Vec<PosRot> = shortest_path_possible.sample_many(step_distance);
 //!
-//! // The path is just over 185 units long
-//! assert_eq!(shortest_path_possible.length().round(), 185.0);
+//!     // The path is just over 185 units long
+//!     assert_eq!(shortest_path_possible.length().round(), 185.0);
 //!
-//! // There are 37 points spaced 5 units apart (37 * 5 = 185), + 1 more for the endpoint
-//! assert_eq!(samples.len(), 38);
+//!     // There are 37 points spaced 5 units apart (37 * 5 = 185), + 1 more for the endpoint
+//!     assert_eq!(samples.len(), 38);
+//! }
 //! ```
 //!
 //! ## Features
 //!
-//! * `glam` - Use a [`glam`] compatible API
+//! * `std` - (Default) Enables the use of the standard library
+//! * `alloc` - (Default) Enables `sample` and `sample_many`
+//! * `libm` - Enables the use of the `libm` crate for mathematical functions
+//! * `glam` - Use a [`glam`](https://crates.io/crates/glam) compatible API
+//! * `f64` - By default, the library uses `f32` precision and the equivalent `glam::f32` structs if that feature is enabled. Setting `f64` changes all numbers to 64-bit precision, and uses `glam::f64` vector types
 //!
 //! [`sample`]: DubinsPath::sample
 //! [`sample_many`]: DubinsPath::sample_many
+
+#[cfg(all(not(feature = "std"), feature = "alloc"))]
+extern crate alloc;
+
+#[cfg(all(not(feature = "std"), feature = "alloc"))]
+use alloc::vec::Vec;
 
 /// [`glam`] is a crate that provides vector types, and used to provide a more ergonomic API
 ///
@@ -85,17 +99,18 @@ mod float_type {
     /// Alias for the f32 type used
     pub type FloatType = f32;
     /// Appropriate PI for the f32 precision type
-    pub use core::f32::consts::PI;
+    pub use core::f32::consts::{PI, TAU};
 
     #[cfg(feature = "glam")]
     pub type Vec2 = glam::Vec2;
 }
+
 #[cfg(feature = "f64")]
 mod float_type {
     /// Alias for the f64 type used
     pub type FloatType = f64;
     /// Appropriate PI for the f64 precision type
-    pub use core::f64::consts::PI;
+    pub use core::f64::consts::{PI, TAU};
 
     #[cfg(feature = "glam")]
     pub type Vec2 = glam::DVec2;
@@ -103,15 +118,18 @@ mod float_type {
 
 #[cfg(feature = "glam")]
 use float_type::Vec2;
-pub use float_type::{FloatType, PI};
+pub use float_type::{FloatType, PI, TAU};
 
-use core::{
-    fmt,
-    ops::{Add, Bound, RangeBounds},
-    result,
-};
+use core::{error::Error, fmt, ops::Add, result};
 
-use std::error::Error;
+#[cfg(feature = "alloc")]
+use core::ops::{Bound, RangeBounds};
+
+#[cfg(not(feature = "libm"))]
+type Math = FloatType;
+
+#[cfg(feature = "libm")]
+type Math = libm::Libm<FloatType>;
 
 /// The three segment types in a Dubin's Path
 #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
@@ -368,26 +386,23 @@ impl Intermediate {
 
         let dx = q1.x() - q0.x();
         let dy = q1.y() - q0.y();
-        let d = dx.hypot(dy) / rho;
+        let d = Math::hypot(dx, dy) / rho;
 
         // test required to prevent domain errors if dx=0 and dy=0
-        let theta = mod2pi(dy.atan2(dx));
+        let theta = mod2pi(Math::atan2(dy, dx));
 
         let alpha = mod2pi(q0.rot() - theta);
         let beta = mod2pi(q1.rot() - theta);
-
-        let (sa, ca) = alpha.sin_cos();
-        let (sb, cb) = beta.sin_cos();
 
         Self {
             alpha,
             beta,
             d,
-            sa,
-            sb,
-            ca,
-            cb,
-            c_ab: (alpha - beta).cos(),
+            sa: Math::sin(alpha),
+            sb: Math::sin(beta),
+            ca: Math::cos(alpha),
+            cb: Math::cos(beta),
+            c_ab: Math::cos(alpha - beta),
             d_sq: d * d,
         }
     }
@@ -396,15 +411,15 @@ impl Intermediate {
 impl Intermediate {
     /// Try to calculate a Left Straight Left path
     fn lsl(&self) -> Result<Params> {
-        let p_sq = (2. * self.d).mul_add(self.sa - self.sb, 2. + self.d_sq - (2. * self.c_ab));
+        let p_sq = 2. * self.d * (self.sa - self.sb) + 2. + self.d_sq - 2. * self.c_ab;
 
         if p_sq >= 0. {
             let tmp0 = self.d + self.sa - self.sb;
-            let tmp1 = (self.cb - self.ca).atan2(tmp0);
+            let tmp1 = Math::atan2(self.cb - self.ca, tmp0);
 
             Ok([
                 mod2pi(tmp1 - self.alpha),
-                p_sq.sqrt(),
+                Math::sqrt(p_sq),
                 mod2pi(self.beta - tmp1),
             ])
         } else {
@@ -414,15 +429,15 @@ impl Intermediate {
 
     /// Try to calculate a Right Straight Right path
     fn rsr(&self) -> Result<Params> {
-        let p_sq = (2. * self.d).mul_add(self.sb - self.sa, 2. + self.d_sq - (2. * self.c_ab));
+        let p_sq = 2. * self.d * (self.sb - self.sa) + 2. + self.d_sq - (2. * self.c_ab);
 
         if p_sq >= 0. {
             let tmp0 = self.d - self.sa + self.sb;
-            let tmp1 = (self.ca - self.cb).atan2(tmp0);
+            let tmp1 = Math::atan2(self.ca - self.cb, tmp0);
 
             Ok([
                 mod2pi(self.alpha - tmp1),
-                p_sq.sqrt(),
+                Math::sqrt(p_sq),
                 mod2pi(tmp1 - self.beta),
             ])
         } else {
@@ -432,13 +447,12 @@ impl Intermediate {
 
     /// Try to calculate a Left Straight Right path
     fn lsr(&self) -> Result<Params> {
-        let two: FloatType = 2.0;
-        let p_sq =
-            (2. * self.d).mul_add(self.sa + self.sb, two.mul_add(self.c_ab, -2. + self.d_sq));
+        let p_sq = 2. * self.d * (self.sa + self.sb) + 2. * self.c_ab - 2. + self.d_sq;
 
         if p_sq >= 0. {
-            let p = p_sq.sqrt();
-            let tmp0 = (-self.ca - self.cb).atan2(self.d + self.sa + self.sb) - (-two).atan2(p);
+            let p = Math::sqrt(p_sq);
+            let tmp0 =
+                Math::atan2(-self.ca - self.cb, self.d + self.sa + self.sb) - Math::atan2(-2., p);
 
             Ok([
                 mod2pi(tmp0 - self.alpha),
@@ -452,12 +466,12 @@ impl Intermediate {
 
     /// Try to calculate a Right Straight Left path
     fn rsl(&self) -> Result<Params> {
-        let two: FloatType = 2.0;
-        let p_sq = two.mul_add(self.c_ab, -2. + self.d_sq) - (2. * self.d * (self.sa + self.sb));
+        let p_sq = 2. * self.c_ab - 2. + self.d_sq - 2. * self.d * (self.sa + self.sb);
 
         if p_sq >= 0. {
-            let p = p_sq.sqrt();
-            let tmp0 = (self.ca + self.cb).atan2(self.d - self.sa - self.sb) - two.atan2(p);
+            let p = Math::sqrt(p_sq);
+            let tmp0 =
+                Math::atan2(self.ca + self.cb, self.d - self.sa - self.sb) - Math::atan2(2., p);
 
             Ok([mod2pi(self.alpha - tmp0), p, mod2pi(self.beta - tmp0)])
         } else {
@@ -467,13 +481,11 @@ impl Intermediate {
 
     /// Try to calculate a Right Left Right path
     fn rlr(&self) -> Result<Params> {
-        let two: FloatType = 2.0;
-        let tmp0 =
-            (2. * self.d).mul_add(self.sa - self.sb, two.mul_add(self.c_ab, 6. - self.d_sq)) / 8.;
+        let tmp0 = (2. * self.d * (self.sa - self.sb) + 2. * self.c_ab + 6. - self.d_sq) / 8.;
 
         if tmp0.abs() <= 1. {
-            let p = mod2pi(two.mul_add(PI, -tmp0.acos()));
-            let phi = (self.ca - self.cb).atan2(self.d - self.sa + self.sb);
+            let p = mod2pi(TAU - Math::acos(tmp0));
+            let phi = Math::atan2(self.ca - self.cb, self.d - self.sa + self.sb);
             let t = mod2pi(self.alpha - phi + mod2pi(p / 2.));
 
             Ok([t, p, mod2pi(self.alpha - self.beta - t + mod2pi(p))])
@@ -484,13 +496,11 @@ impl Intermediate {
 
     /// Try to calculate a Left Right Left path
     fn lrl(&self) -> Result<Params> {
-        let two: FloatType = 2.0;
-        let tmp0 =
-            (2. * self.d).mul_add(self.sb - self.sa, two.mul_add(self.c_ab, 6. - self.d_sq)) / 8.;
+        let tmp0 = (2. * self.d * (self.sb - self.sa) + 2. * self.c_ab + 6. - self.d_sq) / 8.;
 
         if tmp0.abs() <= 1. {
-            let p = mod2pi(two.mul_add(PI, -tmp0.acos()));
-            let phi = (self.ca - self.cb).atan2(self.d + self.sa - self.sb);
+            let p = mod2pi(TAU - Math::acos(tmp0));
+            let phi = Math::atan2(self.ca - self.cb, self.d + self.sa - self.sb);
             let t = mod2pi(-self.alpha - phi + p / 2.);
 
             Ok([t, p, mod2pi(mod2pi(self.beta) - self.alpha - t + mod2pi(p))])
@@ -539,7 +549,12 @@ impl Intermediate {
 /// * `theta`: The value to be modded
 #[must_use]
 pub fn mod2pi(theta: FloatType) -> FloatType {
-    theta.rem_euclid(2. * PI)
+    let r = theta % TAU;
+    if r < 0.0 {
+        r + TAU
+    } else {
+        r
+    }
 }
 
 /// All the basic information about Dubin's Paths
@@ -584,14 +599,16 @@ impl DubinsPath {
     /// [`sample`]: DubinsPath::sample
     #[must_use]
     pub fn segment(t: FloatType, qi: PosRot, type_: SegmentType) -> PosRot {
-        let (st, ct) = qi.rot().sin_cos();
+        let rot = qi.rot();
+        let st = Math::sin(rot);
+        let ct = Math::cos(rot);
 
         let qt = match type_ {
             SegmentType::L => {
-                PosRot::from_floats((qi.rot() + t).sin() - st, -(qi.rot() + t).cos() + ct, t)
+                PosRot::from_floats(Math::sin(rot + t) - st, -Math::cos(rot + t) + ct, t)
             }
             SegmentType::R => {
-                PosRot::from_floats(-(qi.rot() - t).sin() + st, (qi.rot() - t).cos() - ct, -t)
+                PosRot::from_floats(-Math::sin(rot - t) + st, Math::cos(rot - t) - ct, -t)
             }
             SegmentType::S => PosRot::from_floats(ct * t, st * t, 0.),
         };
@@ -650,6 +667,7 @@ impl DubinsPath {
         self.offset(q)
     }
 
+    #[cfg(feature = "alloc")]
     fn sample_cached(
         &self,
         t: FloatType,
@@ -862,6 +880,7 @@ impl DubinsPath {
     /// let samples: Vec<PosRot> = shortest_path_possible.sample_many(step_distance);
     /// ```
     #[must_use]
+    #[cfg(feature = "alloc")]
     pub fn sample_many(&self, step_distance: FloatType) -> Vec<PosRot> {
         self.sample_many_range(step_distance, ..)
     }
@@ -890,6 +909,7 @@ impl DubinsPath {
     /// assert_eq!(samples.len(), 16);
     /// ```
     #[must_use]
+    #[cfg(feature = "alloc")]
     pub fn sample_many_range<T: RangeBounds<FloatType>>(
         &self,
         step_distance: FloatType,
@@ -917,7 +937,7 @@ impl DubinsPath {
         // Ignoring cast_sign_loss because we know step_distance should positive
         // Ignoring cast_possible_truncation because we rounded down using f32::floor()
         #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-        let num_samples = ((end - start) / step_distance).floor() as u32;
+        let num_samples = Math::floor((end - start) / step_distance) as u32;
 
         let mut samples: Vec<_> = (0..num_samples)
             .map(|i| {
@@ -996,8 +1016,8 @@ impl DubinsPath {
 mod tests {
 
     use super::{mod2pi, DubinsPath, FloatType, NoPathError, PathType, PosRot, SegmentType, PI};
+    use core::mem::size_of;
     use rand::Rng;
-    use std::mem::size_of;
 
     const TURN_RADIUS: FloatType = 1. / 0.00076;
 
@@ -1039,7 +1059,6 @@ mod tests {
 
         let runs = 50_000;
         let mut thread_rng = rand::rng();
-        let mut error = 0;
 
         for _ in 0..runs {
             let q0 = PosRot::from_floats(
@@ -1057,31 +1076,38 @@ mod tests {
                 continue;
             };
 
+            let start = path.sample(0.);
+
+            #[cfg(feature = "glam")]
+            let dist_diff = q0.pos().distance(start.pos());
+
+            #[cfg(not(feature = "glam"))]
+            let dist_diff = (q0.x() - start.x()).hypot(q0.y() - start.y());
+
+            let rot_diff = angle_2d(q0.rot(), start.rot());
+
+            assert!(
+                dist_diff <= 0.1 && rot_diff <= 0.1,
+                "Start is different! {:?} | {q0:?} | {start:?} | {dist_diff}, {rot_diff}",
+                path.path_type
+            );
+
             let endpoint = path.endpoint();
 
             #[cfg(feature = "glam")]
-            if q1.pos().distance(endpoint.pos()) > 1. || angle_2d(q1.rot(), endpoint.rot()) > 0.1 {
-                println!(
-                    "Endpoint is different! {:?} | {q0:?} | {q1:?} | {endpoint:?}",
-                    path.path_type
-                );
-                error += 1;
-            }
+            let dist_diff = q1.pos().distance(endpoint.pos());
 
             #[cfg(not(feature = "glam"))]
-            if (q1.x() - endpoint.x()).abs() > 1.
-                || (q1.x() - endpoint.x()).abs() > 1.
-                || angle_2d(q1.rot(), endpoint.rot()) > 0.1
-            {
-                println!(
-                    "Endpoint is different! {:?} | {q0:?} | {q1:?} | {endpoint:?}",
-                    path.path_type
-                );
-                error += 1;
-            }
-        }
+            let dist_diff = (q1.x() - endpoint.x()).hypot(q1.y() - endpoint.y());
 
-        assert_eq!(error, 0);
+            let rot_diff = angle_2d(q1.rot(), endpoint.rot());
+
+            assert!(
+                dist_diff <= 0.1 && rot_diff <= 0.1,
+                "Endpoint is different! {:?} | {q1:?} | {endpoint:?} | {dist_diff}, {rot_diff}",
+                path.path_type
+            );
+        }
     }
 
     #[test]
@@ -1130,14 +1156,18 @@ mod tests {
         test_pos_rot_equivalence!(&path.qi, &start_pose, epsilon);
         test_pos_rot_equivalence!(&path.endpoint(), &goal_pose, epsilon);
 
-        let interpolated = path.sample_many(0.4);
-        let first_point = interpolated.first().unwrap();
-        let last_pose = interpolated.last().unwrap();
-        test_pos_rot_equivalence!(first_point, &start_pose, epsilon);
-        test_pos_rot_equivalence!(last_pose, &goal_pose, epsilon);
+        #[cfg(feature = "alloc")]
+        {
+            let interpolated = path.sample_many(0.4);
+            let first_point = interpolated.first().unwrap();
+            let last_pose = interpolated.last().unwrap();
+            test_pos_rot_equivalence!(first_point, &start_pose, epsilon);
+            test_pos_rot_equivalence!(last_pose, &goal_pose, epsilon);
+        }
     }
 
     #[test]
+    #[cfg(feature = "alloc")]
     fn sample_many_ranges() {
         let path = DubinsPath::shortest_from(
             [0., 0., PI / 4.].into(),
