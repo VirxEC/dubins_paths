@@ -106,12 +106,11 @@ use float_type::Vec2;
 pub use float_type::{FloatType, PI};
 
 use core::{
+    error::Error,
     fmt,
-    ops::{Add, Range},
+    ops::{Add, Bound, RangeBounds},
     result,
 };
-
-use std::error::Error;
 
 /// The three segment types in a Dubin's Path
 #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
@@ -863,10 +862,7 @@ impl DubinsPath {
     /// ```
     #[must_use]
     pub fn sample_many(&self, step_distance: FloatType) -> Vec<PosRot> {
-        let zero: FloatType = 0.0;
-        let mut samples = self.sample_many_range(step_distance, zero..self.length());
-        samples.push(self.sample(self.length()));
-        samples
+        self.sample_many_range(step_distance, ..)
     }
 
     /// Get a vec of all the points along the path, within the specified range
@@ -893,10 +889,10 @@ impl DubinsPath {
     /// assert_eq!(samples.len(), 16);
     /// ```
     #[must_use]
-    pub fn sample_many_range(
+    pub fn sample_many_range<T: RangeBounds<FloatType>>(
         &self,
         step_distance: FloatType,
-        range: Range<FloatType>,
+        range: T,
     ) -> Vec<PosRot> {
         debug_assert!(step_distance > 0.);
 
@@ -906,21 +902,38 @@ impl DubinsPath {
         let q1 = Self::segment(self.param[0], qi, types[0]);
         let q2 = Self::segment(self.param[1], q1, types[1]);
 
+        let start = match range.start_bound() {
+            Bound::Included(start) => *start,
+            Bound::Excluded(start) => *start + step_distance,
+            Bound::Unbounded => 0.0,
+        };
+        let (end, includes_end) = match range.end_bound() {
+            Bound::Included(end) => (*end, true),
+            Bound::Excluded(end) => (*end, false),
+            Bound::Unbounded => (self.length(), true),
+        };
+
         // Ignoring cast_sign_loss because we know step_distance should positive
         // Ignoring cast_possible_truncation because we rounded down using f32::floor()
         #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-        let num_samples = ((range.end - range.start) / step_distance).floor() as u32;
+        let num_samples = ((end - start) / step_distance).floor() as u32;
 
-        (0..num_samples)
+        let mut samples: Vec<_> = (0..num_samples)
             .map(|i| {
                 // Since the value originally comes from FloatType,
                 // this should be fine
                 #[allow(clippy::cast_precision_loss)]
                 #[allow(clippy::cast_lossless)]
-                (i as FloatType * step_distance + range.start)
+                (i as FloatType * step_distance + start)
             })
             .map(|t| self.sample_cached(t, types, qi, q1, q2))
-            .collect()
+            .collect();
+
+        if includes_end {
+            samples.push(self.sample_cached(end, types, qi, q1, q2));
+        }
+
+        samples
     }
 
     /// Get the endpoint of the path
@@ -1094,10 +1107,15 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::approx_constant)]
+    #[allow(clippy::excessive_precision)]
     fn sample_many_correctness() {
-        let start_pose = PosRot::from_floats(0.0, 8.5, 1.5707963267948966);
-        let goal_pose =
-            PosRot::from_floats(-3.5211267605633907, 23.779342723004696, 2.79308931595238);
+        let start_pose = PosRot::from_floats(0.0, 8.5, 1.570_796_326_794_896_6);
+        let goal_pose = PosRot::from_floats(
+            -3.521_126_760_563_390_7,
+            23.779_342_723_004_696,
+            2.793_089_315_952_38,
+        );
         let rho = 8.0;
 
         let path = DubinsPath::shortest_from(start_pose, goal_pose, rho).expect("Path Error");
@@ -1116,5 +1134,38 @@ mod tests {
         let last_pose = interpolated.last().unwrap();
         test_pos_rot_equivalence!(first_point, &start_pose, epsilon);
         test_pos_rot_equivalence!(last_pose, &goal_pose, epsilon);
+    }
+
+    #[test]
+    fn sample_many_ranges() {
+        let path = DubinsPath::shortest_from(
+            [0., 0., PI / 4.].into(),
+            [100., -100., PI * (3. / 4.)].into(),
+            11.6,
+        )
+        .unwrap();
+
+        // The distance between each sample point
+        let step_distance = 5.;
+
+        let zero: FloatType = 0.0;
+
+        // There are 37 points spaced 5 units apart (37 * 5 = 185), + 1 more for the endpoint
+        assert_eq!(
+            path.sample_many_range(step_distance, zero..=path.length())
+                .len(),
+            38
+        );
+        assert_eq!(
+            path.sample_many_range(step_distance, zero..path.length())
+                .len(),
+            37
+        );
+        assert_eq!(
+            path.sample_many_range(step_distance, ..path.length()).len(),
+            37
+        );
+        assert_eq!(path.sample_many_range(step_distance, zero..).len(), 38);
+        assert_eq!(path.sample_many_range(step_distance, ..).len(), 38);
     }
 }
