@@ -63,8 +63,8 @@
 //! // The path is just over 185 units long
 //! assert_eq!(shortest_path_possible.length().round(), 185.0);
 //!
-//! // There are 37 points spaced 5 units apart (37 * 5 = 185)
-//! assert_eq!(samples.len(), 37);
+//! // There are 37 points spaced 5 units apart (37 * 5 = 185), + 1 more for the endpoint
+//! assert_eq!(samples.len(), 38);
 //! ```
 //!
 //! ## Features
@@ -864,7 +864,9 @@ impl DubinsPath {
     #[must_use]
     pub fn sample_many(&self, step_distance: FloatType) -> Vec<PosRot> {
         let zero: FloatType = 0.0;
-        self.sample_many_range(step_distance, zero..self.length())
+        let mut samples = self.sample_many_range(step_distance, zero..self.length());
+        samples.push(self.sample(self.length()));
+        samples
     }
 
     /// Get a vec of all the points along the path, within the specified range
@@ -1081,5 +1083,38 @@ mod tests {
         assert_eq!(size_of::<PathType>(), 1);
         assert_eq!(size_of::<SegmentType>(), 1);
         assert_eq!(size_of::<NoPathError>(), 0);
+    }
+
+    macro_rules! test_pos_rot_equivalence {
+        ($a:expr, $b:expr, $epsilon_diff:expr) => {
+            approx::assert_ulps_eq!($a.x(), $b.x(), max_ulps = 4, epsilon = $epsilon_diff);
+            approx::assert_ulps_eq!($a.y(), $b.y(), max_ulps = 4, epsilon = $epsilon_diff);
+            approx::assert_ulps_eq!($a.rot(), $b.rot(), max_ulps = 4, epsilon = $epsilon_diff);
+        };
+    }
+
+    #[test]
+    fn sample_many_correctness() {
+        let start_pose = PosRot::from_floats(0.0, 8.5, 1.5707963267948966);
+        let goal_pose =
+            PosRot::from_floats(-3.5211267605633907, 23.779342723004696, 2.79308931595238);
+        let rho = 8.0;
+
+        let path = DubinsPath::shortest_from(start_pose, goal_pose, rho).expect("Path Error");
+
+        // f32 seems to have more precision issues in this space. 64bit calcs work well enough with epsilon though
+        #[cfg(feature = "f64")]
+        let epsilon = FloatType::EPSILON;
+        #[cfg(not(feature = "f64"))]
+        let epsilon = 0.00001_f32;
+
+        test_pos_rot_equivalence!(&path.qi, &start_pose, epsilon);
+        test_pos_rot_equivalence!(&path.endpoint(), &goal_pose, epsilon);
+
+        let interpolated = path.sample_many(0.4);
+        let first_point = interpolated.first().unwrap();
+        let last_pose = interpolated.last().unwrap();
+        test_pos_rot_equivalence!(first_point, &start_pose, epsilon);
+        test_pos_rot_equivalence!(last_pose, &goal_pose, epsilon);
     }
 }
