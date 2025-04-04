@@ -1,6 +1,6 @@
 [package]
 name = "dubins_paths"
-version = "2.7.1"
+version = "3.0.0"
 authors = ["VirxEC"]
 edition = "2021"
 description = "Rust code for calculating Dubin's Paths"
@@ -9,7 +9,7 @@ repository = "https://github.com/VirxEC/dubins_paths"
 license = "MIT"
 keywords = ["physics", "simulation", "dubin", "path-finding"]
 categories = ["science", "simulation", "algorithms"]
-rust-version = "1.68.2"
+rust-version = "1.81.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -19,10 +19,15 @@ criterion = "0.5.1"
 rand = "0.9.0"
 
 [dependencies]
-glam = { version = "0.30.1", optional = true }
+glam = { version = "0.30.1", default-features = false, optional = true }
+libm = { version = "0.2.11", optional = true }
 
 [features]
+default = ["std"]
+libm = ["dep:libm", "glam?/libm"]
 f64 = []
+std = ["alloc", "glam?/std"]
+alloc = []
 
 [profile.release]
 codegen-units = 1
@@ -36,3 +41,8 @@ all-features = true
 [[bench]]
 name = "bench_dubins"
 harness = false
+required-features = ["alloc"]
+
+[[example]]
+name = "flamegraph"
+required-features = ["alloc"]
