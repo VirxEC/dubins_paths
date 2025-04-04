@@ -106,11 +106,12 @@ use float_type::Vec2;
 pub use float_type::{FloatType, PI};
 
 use core::{
-    error::Error,
     fmt,
     ops::{Add, Bound, RangeBounds},
     result,
 };
+
+use std::error::Error;
 
 /// The three segment types in a Dubin's Path
 #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
