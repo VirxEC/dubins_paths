@@ -1186,13 +1186,17 @@ mod tests {
         let path = DubinsPath {
             qi,
             rho: 4.1230259079368361,
-            param: [0.05386957718771157, 0.23210650646903627, 0.43365728520008034],
-            path_type: PathType::LSL
+            param: [
+                0.05386957718771157,
+                0.23210650646903627,
+                0.43365728520008034,
+            ],
+            path_type: PathType::LSL,
         };
 
         let sample_distance = 3.0;
         assert!(path.length() < sample_distance);
-        let sampled  = path.sample_many(sample_distance);
+        let sampled = path.sample_many(sample_distance);
         assert!(sampled.len() == 2);
     }
 }
