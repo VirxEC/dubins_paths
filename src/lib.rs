@@ -917,33 +917,28 @@ impl DubinsPath {
         // Ignoring cast_sign_loss because we know step_distance should positive
         // Ignoring cast_possible_truncation because we rounded down using f32::floor()
         #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-        let num_samples = ((end - start) / step_distance).floor() as u32;
+        let mut num_samples = ((end - start) / step_distance).floor() as u32;
 
-        let samples = if num_samples == 0 && includes_end {
-            // If the num of samples we have specified here floors to 0 - we return a degenerate straight line if includes_end is true
-            // This should cover full "interpolation" of curves with a distance close or under the sampling value
-            vec![
-                self.sample_cached(0.0, types, qi, q1, q2),
-                self.sample_cached(end, types, qi, q1, q2),
-            ]
-        } else {
-            let mut samples: Vec<_> = (0..num_samples)
-                .map(|i| {
-                    // Since the value originally comes from FloatType,
-                    // this should be fine
-                    #[allow(clippy::cast_precision_loss)]
-                    #[allow(clippy::cast_lossless)]
-                    (i as FloatType * step_distance + start)
-                })
-                .map(|t| self.sample_cached(t, types, qi, q1, q2))
-                .collect();
+        // If the num of samples we have specified here floors to 0 for an Unbounded starting range limit - we intentionally up that to 1 to give us the starting point
+        // This should cover full "interpolation" of curves with a distance close or under the sampling value
+        if num_samples == 0 && range.start_bound() == Bound::Unbounded {
+            num_samples = 1;
+        }
 
-            if includes_end {
-                samples.push(self.sample_cached(end, types, qi, q1, q2));
-            }
+        let mut samples: Vec<_> = (0..num_samples)
+            .map(|i| {
+                // Since the value originally comes from FloatType,
+                // this should be fine
+                #[allow(clippy::cast_precision_loss)]
+                #[allow(clippy::cast_lossless)]
+                (i as FloatType * step_distance + start)
+            })
+            .map(|t| self.sample_cached(t, types, qi, q1, q2))
+            .collect();
 
-            samples
-        };
+        if includes_end {
+            samples.push(self.sample_cached(end, types, qi, q1, q2));
+        }
 
         samples
     }
@@ -1185,8 +1180,11 @@ mod tests {
     fn sample_many_small_interpolation() {
         // Tests a small real case of a curve with a distance less than the interpolation/sampling distance
         // In this case - we should see a degenerate "straight line" as the result
+
+        let qi = PosRot::from_floats(567105.33225801913, 6909411.6672947491, 1.6033922771475371);
+
         let path = DubinsPath {
-            qi: PosRot([567105.33225801913, 6909411.6672947491, 1.6033922771475371]),
+            qi,
             rho: 4.1230259079368361,
             param: [0.05386957718771157, 0.23210650646903627, 0.43365728520008034],
             path_type: PathType::LSL
