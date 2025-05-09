@@ -1007,6 +1007,12 @@ mod tests {
 
     const TURN_RADIUS: FloatType = 1. / 0.00076;
 
+    // f32 seems to have more precision issues in this space. 64bit calcs work well enough with epsilon though
+    #[cfg(feature = "f64")]
+    const POSROT_EPSILON: FloatType = FloatType::EPSILON;
+    #[cfg(not(feature = "f64"))]
+    const POSROT_EPSILON: FloatType = 0.00001_f32;
+
     #[test]
     fn mod2pi_test() {
         assert!(mod2pi(-FloatType::from_bits(1)) >= 0.);
@@ -1127,20 +1133,14 @@ mod tests {
 
         let path = DubinsPath::shortest_from(start_pose, goal_pose, rho).expect("Path Error");
 
-        // f32 seems to have more precision issues in this space. 64bit calcs work well enough with epsilon though
-        #[cfg(feature = "f64")]
-        let epsilon = FloatType::EPSILON;
-        #[cfg(not(feature = "f64"))]
-        let epsilon = 0.00001_f32;
-
-        test_pos_rot_equivalence!(&path.qi, &start_pose, epsilon);
-        test_pos_rot_equivalence!(&path.endpoint(), &goal_pose, epsilon);
+        test_pos_rot_equivalence!(&path.qi, &start_pose, POSROT_EPSILON);
+        test_pos_rot_equivalence!(&path.endpoint(), &goal_pose, POSROT_EPSILON);
 
         let interpolated = path.sample_many(0.4);
         let first_point = interpolated.first().unwrap();
         let last_pose = interpolated.last().unwrap();
-        test_pos_rot_equivalence!(first_point, &start_pose, epsilon);
-        test_pos_rot_equivalence!(last_pose, &goal_pose, epsilon);
+        test_pos_rot_equivalence!(first_point, &start_pose, POSROT_EPSILON);
+        test_pos_rot_equivalence!(last_pose, &goal_pose, POSROT_EPSILON);
     }
 
     #[test]
@@ -1198,5 +1198,9 @@ mod tests {
         assert!(path.length() < sample_distance);
         let sampled = path.sample_many(sample_distance);
         assert!(sampled.len() == 2);
+
+        // Check we have a degenerate line with just start and end positions
+        test_pos_rot_equivalence!(sampled.first().unwrap(), qi, POSROT_EPSILON);
+        test_pos_rot_equivalence!(sampled.last().unwrap(), path.endpoint(), POSROT_EPSILON);
     }
 }
