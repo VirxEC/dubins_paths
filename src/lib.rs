@@ -1177,19 +1177,24 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::excessive_precision)]
     fn sample_many_small_interpolation() {
         // Tests a small real case of a curve with a distance less than the interpolation/sampling distance
         // In this case - we should see a degenerate "straight line" as the result
 
-        let qi = PosRot::from_floats(567105.33225801913, 6909411.6672947491, 1.6033922771475371);
+        let qi = PosRot::from_floats(
+            567_105.332_258_019_13,
+            6_909_411.667_294_749_1,
+            1.603_392_277_147_537_1,
+        );
 
         let path = DubinsPath {
             qi,
-            rho: 4.1230259079368361,
+            rho: 4.123_025_907_936_836_1,
             param: [
-                0.05386957718771157,
-                0.23210650646903627,
-                0.43365728520008034,
+                0.053_869_577_187_711_57,
+                0.232_106_506_469_036_27,
+                0.433_657_285_200_080_34,
             ],
             path_type: PathType::LSL,
         };
