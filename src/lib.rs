@@ -937,7 +937,13 @@ impl DubinsPath {
         // Ignoring cast_sign_loss because we know step_distance should positive
         // Ignoring cast_possible_truncation because we rounded down using f32::floor()
         #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-        let num_samples = Math::floor((end - start) / step_distance) as u32;
+        let mut num_samples = Math::floor((end - start) / step_distance) as u32;
+
+        // If the num of samples we have specified here floors to 0 for an Unbounded starting range limit - we intentionally up that to 1 to give us the starting point
+        // This should cover full "interpolation" of curves with a distance close or under the sampling value
+        if num_samples == 0 && range.start_bound() == Bound::Unbounded {
+            num_samples = 1;
+        }
 
         let mut samples: Vec<_> = (0..num_samples)
             .map(|i| {
@@ -1020,6 +1026,12 @@ mod tests {
     use rand::Rng;
 
     const TURN_RADIUS: FloatType = 1. / 0.00076;
+
+    // f32 seems to have more precision issues in this space. 64bit calcs work well enough with epsilon though
+    #[cfg(feature = "f64")]
+    const POSROT_EPSILON: FloatType = FloatType::EPSILON;
+    #[cfg(not(feature = "f64"))]
+    const POSROT_EPSILON: FloatType = 0.00001_f32;
 
     #[test]
     fn mod2pi_test() {
@@ -1147,22 +1159,16 @@ mod tests {
 
         let path = DubinsPath::shortest_from(start_pose, goal_pose, rho).expect("Path Error");
 
-        // f32 seems to have more precision issues in this space. 64bit calcs work well enough with epsilon though
-        #[cfg(feature = "f64")]
-        let epsilon = FloatType::EPSILON;
-        #[cfg(not(feature = "f64"))]
-        let epsilon = 0.00001_f32;
-
-        test_pos_rot_equivalence!(&path.qi, &start_pose, epsilon);
-        test_pos_rot_equivalence!(&path.endpoint(), &goal_pose, epsilon);
+        test_pos_rot_equivalence!(&path.qi, &start_pose, POSROT_EPSILON);
+        test_pos_rot_equivalence!(&path.endpoint(), &goal_pose, POSROT_EPSILON);
 
         #[cfg(feature = "alloc")]
         {
             let interpolated = path.sample_many(0.4);
             let first_point = interpolated.first().unwrap();
             let last_pose = interpolated.last().unwrap();
-            test_pos_rot_equivalence!(first_point, &start_pose, epsilon);
-            test_pos_rot_equivalence!(last_pose, &goal_pose, epsilon);
+            test_pos_rot_equivalence!(first_point, &start_pose, POSROT_EPSILON);
+            test_pos_rot_equivalence!(last_pose, &goal_pose, POSROT_EPSILON);
         }
     }
 
@@ -1198,5 +1204,38 @@ mod tests {
         );
         assert_eq!(path.sample_many_range(step_distance, zero..).len(), 38);
         assert_eq!(path.sample_many_range(step_distance, ..).len(), 38);
+    }
+
+    #[test]
+    #[allow(clippy::excessive_precision)]
+    fn sample_many_small_interpolation() {
+        // Tests a small real case of a curve with a distance less than the interpolation/sampling distance
+        // In this case - we should see a degenerate "straight line" as the result
+
+        let qi = PosRot::from_floats(
+            567_105.332_258_019_13,
+            6_909_411.667_294_749_1,
+            1.603_392_277_147_537_1,
+        );
+
+        let path = DubinsPath {
+            qi,
+            rho: 4.123_025_907_936_836_1,
+            param: [
+                0.053_869_577_187_711_57,
+                0.232_106_506_469_036_27,
+                0.433_657_285_200_080_34,
+            ],
+            path_type: PathType::LSL,
+        };
+
+        let sample_distance = 3.0;
+        assert!(path.length() < sample_distance);
+        let sampled = path.sample_many(sample_distance);
+        assert!(sampled.len() == 2);
+
+        // Check we have a degenerate line with just start and end positions
+        test_pos_rot_equivalence!(sampled.first().unwrap(), qi, POSROT_EPSILON);
+        test_pos_rot_equivalence!(sampled.last().unwrap(), path.endpoint(), POSROT_EPSILON);
     }
 }
