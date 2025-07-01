@@ -19,7 +19,7 @@ criterion = "0.5.1"
 rand = "0.9.1"
 
 [dependencies]
-glam = { version = "0.30.2", optional = true }
+glam = { version = "0.30.4", optional = true }
 
 [features]
 f64 = []
