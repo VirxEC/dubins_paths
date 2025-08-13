@@ -24,7 +24,7 @@ libm = { version = "0.2.15", optional = true }
 
 [features]
 default = ["std"]
-libm = ["dep:libm", "glam?/libm"]
+libm = ["dep:libm", "glam?/nostd-libm"]
 f64 = []
 std = ["alloc", "glam?/std"]
 alloc = []

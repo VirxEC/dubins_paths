@@ -1,7 +1,7 @@
 #![warn(missing_docs, clippy::pedantic, clippy::all, clippy::nursery)]
 #![allow(clippy::suboptimal_flops)]
 #![forbid(unsafe_code)]
-#![cfg_attr(not(feature = "std"), no_std)]
+#![cfg_attr(any(not(feature = "std"), feature = "libm"), no_std)]
 
 //! Calculates a path between two points in space with starting and ending rotation requirements.
 //!
@@ -85,10 +85,10 @@
 #[cfg(not(any(feature = "std", feature = "libm")))]
 compile_error!("Either the std or the libm feature is required");
 
-#[cfg(all(not(feature = "std"), feature = "alloc"))]
+#[cfg(all(any(not(feature = "std"), feature = "libm"), feature = "alloc"))]
 extern crate alloc;
 
-#[cfg(all(not(feature = "std"), feature = "alloc"))]
+#[cfg(all(any(not(feature = "std"), feature = "libm"), feature = "alloc"))]
 use alloc::vec::Vec;
 
 /// [`glam`] is a crate that provides vector types, and used to provide a more ergonomic API
