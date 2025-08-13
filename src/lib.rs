@@ -938,9 +938,9 @@ impl DubinsPath {
         };
 
         // Ignoring cast_sign_loss because we know step_distance should positive
-        // Ignoring cast_possible_truncation because we rounded down using f32::floor()
+        // Ignoring cast_possible_truncation because rounding down is the correct behavior
         #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-        let mut num_samples = Math::floor((end - start) / step_distance) as u32;
+        let mut num_samples = ((end - start) / step_distance) as usize;
 
         // If the num of samples we have specified here floors to 0 for an Unbounded starting range limit - we intentionally up that to 1 to give us the starting point
         // This should cover full "interpolation" of curves with a distance close or under the sampling value
@@ -950,10 +950,8 @@ impl DubinsPath {
 
         let mut samples: Vec<_> = (0..num_samples)
             .map(|i| {
-                // Since the value originally comes from FloatType,
-                // this should be fine
+                // There's nothing we can do about the precision loss
                 #[allow(clippy::cast_precision_loss)]
-                #[allow(clippy::cast_lossless)]
                 (i as FloatType * step_distance + start)
             })
             .map(|t| self.sample_cached(t, types, qi, q1, q2))
