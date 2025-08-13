@@ -82,6 +82,9 @@
 //! [`sample`]: DubinsPath::sample
 //! [`sample_many`]: DubinsPath::sample_many
 
+#[cfg(not(any(feature = "std", feature = "libm")))]
+compile_error!("Either the std or the libm feature is required");
+
 #[cfg(all(not(feature = "std"), feature = "alloc"))]
 extern crate alloc;
 
@@ -1207,6 +1210,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "alloc")]
     #[allow(clippy::excessive_precision)]
     fn sample_many_small_interpolation() {
         // Tests a small real case of a curve with a distance less than the interpolation/sampling distance
