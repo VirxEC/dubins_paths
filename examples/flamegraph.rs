@@ -1,7 +1,7 @@
 #![allow(clippy::incompatible_msrv)]
 
 use core::hint::black_box;
-use dubins_paths::{DubinsPath, FloatType, PI};
+use dubins_paths::{consts::TAU, DubinsPath, FloatType};
 use rand::Rng;
 
 fn main() {
@@ -14,13 +14,13 @@ fn main() {
         let q0 = [
             thread_rng.random_range(-range..range),
             thread_rng.random_range(-range..range),
-            thread_rng.random_range((-2. as FloatType * PI)..(2. as FloatType * PI)),
+            thread_rng.random_range(-TAU..TAU),
         ]
         .into();
         let q1 = [
             thread_rng.random_range(-range..range),
             thread_rng.random_range(-range..range),
-            thread_rng.random_range((-2. as FloatType * PI)..(2. as FloatType * PI)),
+            thread_rng.random_range(-TAU..TAU),
         ]
         .into();
 

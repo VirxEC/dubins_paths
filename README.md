@@ -11,7 +11,7 @@ I've ported the code to Rust and documented everything that I could understand. 
 ## Quick example
 
 ```rust
-use dubins_paths::{DubinsPath, PI, PosRot, Result as DubinsResult};
+use dubins_paths::{consts::PI, DubinsPath, PosRot, Result as DubinsResult};
 
 // PosRot represents the car's (Pos)ition and (Rot)ation
 // Where x and y are the coordinates on a 2d plane

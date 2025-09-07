@@ -1,6 +1,6 @@
 use core::hint::black_box;
 use criterion::{criterion_group, criterion_main, Criterion};
-use dubins_paths::{DubinsPath, FloatType, PathType, PosRot, PI};
+use dubins_paths::{consts::PI, DubinsPath, FloatType, PathType, PosRot};
 
 const TURN_RADIUS: FloatType = 1. / 0.00076;
 
