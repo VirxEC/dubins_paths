@@ -614,21 +614,24 @@ impl DubinsPath {
         let q2 = Self::segment(self.param[1], q1, types[1]);
         let sample_step_distance = step_distance / self.rho;
 
-        let start = match range.start_bound() {
-            Bound::Included(start) => *start / self.rho,
-            Bound::Excluded(start) => *start / self.rho + sample_step_distance,
+        let mut start = match range.start_bound() {
+            Bound::Included(start) => *start,
+            Bound::Excluded(start) => *start + step_distance,
             Bound::Unbounded => 0.0,
         };
         let (end, includes_end) = match range.end_bound() {
-            Bound::Included(end) => (*end / self.rho, true),
-            Bound::Excluded(end) => (*end / self.rho, false),
-            Bound::Unbounded => (self.param.iter().sum(), true),
+            Bound::Included(end) => (*end, true),
+            Bound::Excluded(end) => (*end, false),
+            Bound::Unbounded => (self.length(), true),
         };
 
-        // Ignoring cast_sign_loss because we know step_distance should positive
-        // Ignoring cast_possible_truncation because rounding down is the correct behavior
+        let sample_range = (end - start) / step_distance;
+        start /= self.rho;
+
+        // Ignoring cast_sign_loss because we know step_distance is positive
+        // Ignoring cast_possible_truncation because that is the correct behavior
         #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-        let mut num_samples = ((end - start) / sample_step_distance) as usize;
+        let mut num_samples = sample_range as usize;
 
         // If the num of samples we have specified here floors to 0 for an Unbounded starting range limit - we intentionally up that to 1 to give us the starting point
         // This should cover full "interpolation" of curves with a distance close or under the sampling value
@@ -640,13 +643,17 @@ impl DubinsPath {
             .map(|i| {
                 // There's nothing we can do about the precision loss
                 #[allow(clippy::cast_precision_loss)]
-                (i as FloatType * step_distance + start)
+                (i as FloatType * sample_step_distance + start)
             })
             .map(|t| self.sample_cached(t, types, qi, q1, q2))
             .collect();
 
         if includes_end {
-            samples.push(self.sample_cached(end, types, qi, q1, q2));
+            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+            let max_num_samples = Math::ceil(sample_range) as usize;
+            if max_num_samples != num_samples {
+                samples.push(self.sample_cached(end / self.rho, types, qi, q1, q2));
+            }
         }
 
         samples
