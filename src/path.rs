@@ -592,8 +592,8 @@ impl DubinsPath {
     /// // The distance between each sample point
     /// let step_distance = 5.;
     ///
-    /// // Sample between start_distance..end_distance
-    /// let distances = 40.0..120.0;
+    /// // Sample from start_distance to end_distance
+    /// let distances = 40.0..=120.0;
     ///
     /// let samples: Vec<PosRot> = shortest_path_possible.sample_many_range(step_distance, distances);
     /// assert_eq!(samples.len(), 16);
