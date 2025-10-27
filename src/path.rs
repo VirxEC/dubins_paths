@@ -18,6 +18,11 @@ type Math = libm::Libm<FloatType>;
 ///
 /// To construct this type, use [`Intermediate::new`]
 #[derive(Copy, Clone, Debug, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "rkyv",
+    derive(rkyv::Serialize, rkyv::Deserialize, rkyv::Archive)
+)]
 pub struct Intermediate {
     alpha: FloatType,
     beta: FloatType,
@@ -218,6 +223,11 @@ impl Intermediate {
 
 /// All the basic information about Dubin's Paths
 #[derive(Clone, Copy, Debug, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "rkyv",
+    derive(rkyv::Serialize, rkyv::Deserialize, rkyv::Archive)
+)]
 pub struct DubinsPath {
     /// The initial location (x, y, theta)
     pub qi: PosRot,

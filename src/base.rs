@@ -2,6 +2,11 @@ use core::{error::Error, fmt, ops::Add, result};
 
 /// The three segment types in a Dubin's Path
 #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "rkyv",
+    derive(rkyv::Serialize, rkyv::Deserialize, rkyv::Archive)
+)]
 pub enum SegmentType {
     /// Left-turning segment
     L,
@@ -28,6 +33,11 @@ impl SegmentType {
 
 /// All the possible path types
 #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "rkyv",
+    derive(rkyv::Serialize, rkyv::Deserialize, rkyv::Archive)
+)]
 pub enum PathType {
     #[default]
     /// A "Left Straight Left" Dubin's path
@@ -127,6 +137,11 @@ pub use float_type::{consts, FloatType};
 #[cfg(not(feature = "glam"))]
 #[repr(transparent)]
 #[derive(Clone, Copy, Debug, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "rkyv",
+    derive(rkyv::Serialize, rkyv::Deserialize, rkyv::Archive)
+)]
 pub struct PosRot([FloatType; 3]);
 
 #[cfg(not(feature = "glam"))]
@@ -163,6 +178,11 @@ impl PosRot {
 /// The car's position and rotation in radians
 #[cfg(feature = "glam")]
 #[derive(Clone, Copy, Debug, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "rkyv",
+    derive(rkyv::Serialize, rkyv::Deserialize, rkyv::Archive)
+)]
 pub struct PosRot(Vec2, FloatType);
 
 #[cfg(feature = "glam")]
