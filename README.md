@@ -46,6 +46,8 @@ DubinsPath has many methods you should look into, such as length, extract_subpat
 * `libm` - Enables the use of the `libm` crate for mathematical functions
 * `glam` - Use a [`glam`](https://crates.io/crates/glam) compatible API
 * `f64` - By default, the library uses `f32` precision and the equivalent `glam::f32` structs if that feature is enabled. Setting `f64` changes all numbers to 64-bit precision, and uses `glam::f64` vector types
+* `serde` - Implementations of `Deserialize` and `Serialize` for most types
+* `rkyv` - Implementations of `Archive`, `Deserialize` and `Serialize` for most types
 
 ## More documentation
 
