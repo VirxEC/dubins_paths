@@ -2,16 +2,19 @@
 name = "dubins_paths"
 version = "3.0.0"
 authors = ["VirxEC"]
-edition = "2021"
+edition = "2024"
 description = "Rust code for calculating Dubin's Paths"
 readme = "README.md"
 repository = "https://github.com/VirxEC/dubins_paths"
 license = "MIT"
 keywords = ["physics", "simulation", "dubin", "path-finding"]
 categories = ["science", "simulation", "algorithms"]
-rust-version = "1.81.0"
+rust-version = "1.85.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lints.rust]
+unsafe_code = "forbid"
 
 [dev-dependencies]
 approx = "0.5.1"
@@ -27,7 +30,6 @@ rkyv = { version = "0.8.12", default-features = false, optional = true }
 [features]
 default = ["std"]
 libm = ["dep:libm", "glam?/nostd-libm"]
-f64 = []
 std = ["alloc", "glam?/std", "serde?/std", "rkyv?/std"]
 alloc = ["serde?/alloc", "rkyv?/alloc"]
 serde = ["dep:serde", "glam?/serde"]

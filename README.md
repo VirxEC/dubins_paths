@@ -2,16 +2,23 @@
 
 [![unsafe forbidden](https://img.shields.io/badge/unsafe-forbidden-success.svg)](https://github.com/rust-secure-code/safety-dance/)
 
-Rust code for calculating Dubin's Paths
+Calculates a path between two points in space with starting and ending rotation requirements.
 
 Credit to [Andrew Walker](https://github.com/AndrewWalker) for the [original C code](https://github.com/AndrewWalker/Dubins-Curves)
-
 I've ported the code to Rust and documented everything that I could understand. Documentation in the original repository was minimal.
 
-## Quick example
+The car is assumed to be a dubin's car.
+A dubin's car is a car that can only do 3 things: turn left, turn right, or go straight.
+
+## Examples
+
+### Basic usage
+
+This will calculate the path that connects the current position and rotation of the car to the desired position and rotation.
 
 ```rust
-use dubins_paths::{consts::PI, DubinsPath, PosRot, Result as DubinsResult};
+use core::f32::consts::PI;
+use dubins_paths::{f32::{DubinsPath, PosRot}, Result as DubinsResult};
 
 // PosRot represents the car's (Pos)ition and (Rot)ation
 // Where x and y are the coordinates on a 2d plane
@@ -37,18 +44,44 @@ let shortest_path_possible: DubinsResult<DubinsPath> = DubinsPath::shortest_from
 assert!(shortest_path_possible.is_ok());
 ```
 
-DubinsPath has many methods you should look into, such as length, extract_subpath, sample, and sample_many.
+### Sample path for points
+
+Calculating the path is very optimized, and does not include any points along the path.
+
+This means that if you want to get points along the path, extra work must be done.
+
+Below, we calculate all points along a path spaced at a given interval. Use [`sample`] instead of [`sample_many`] to get only one point.
+
+```rust
+use core::f32::consts::PI;
+use dubins_paths::f32::{DubinsPath, PosRot};
+
+let shortest_path_possible = DubinsPath::shortest_from([0., 0., PI / 4.].into(), [100., -100., PI * (3. / 4.)].into(), 11.6).unwrap();
+
+// The distance between each sample point
+let step_distance = 5.;
+
+#[cfg(feature = "alloc")]
+{
+    let samples: Vec<PosRot> = shortest_path_possible.sample_many(step_distance);
+
+    // The path is just over 185 units long
+    assert_eq!(shortest_path_possible.length().round(), 185.0);
+
+    // There are 37 points spaced 5 units apart (37 * 5 = 185), + 1 more for the endpoint
+    assert_eq!(samples.len(), 38);
+}
+```
 
 ## Features
 
 * `std` - (Default) Enables the use of the standard library
-* `alloc` - Enables `sample` and `sample_many` when `std` is disabled
-* `libm` - Enables the use of the `libm` crate for mathematical functions
+* `alloc` - (Default) Enables [`sample_many`] and [`sample_many_range`]
+* `libm` - Use the [`libm`] crate for math operations
 * `glam` - Use a [`glam`](https://crates.io/crates/glam) compatible API
-* `f64` - By default, the library uses `f32` precision and the equivalent `glam::f32` structs if that feature is enabled. Setting `f64` changes all numbers to 64-bit precision, and uses `glam::f64` vector types
-* `serde` - Implementations of `Deserialize` and `Serialize` for most types
-* `rkyv` - Implementations of `Archive`, `Deserialize` and `Serialize` for most types
+* `serde` - Implementations of [`serde::Deserialize`] and [`serde::Serialize`] for most types
+* `rkyv` - Implementations of [`rkyv::Archive`], [`rkyv::Deserialize`] and [`rkyv::Serialize`] for most types
 
-## More documentation
-
-Looking for some more detailed documentation? Head on over to the [docs.rs](https://docs.rs/dubins_paths/) page!
+[`sample`]: f32::DubinsPath::sample
+[`sample_many`]: f32::DubinsPath::sample_many
+[`sample_many_range`]: f32::DubinsPath::sample_many_range

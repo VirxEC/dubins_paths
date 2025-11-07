@@ -1,18 +1,160 @@
-use crate::{
-    consts::TAU, mod2pi, FloatType, NoPathError, Params, PathType, PosRot, Result, SegmentType,
-};
+use crate::{NoPathError, PathType, Result, SegmentType};
+use core::{f64::consts::TAU, ops::Add};
 
-#[cfg(all(any(not(feature = "std"), feature = "libm"), feature = "alloc"))]
+#[cfg(feature = "glam")]
+use glam::DVec2;
+
+#[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 
 #[cfg(feature = "alloc")]
 use core::ops::{Bound, RangeBounds};
 
 #[cfg(not(feature = "libm"))]
-type Math = FloatType;
+type Math = f64;
 
 #[cfg(feature = "libm")]
-type Math = libm::Libm<FloatType>;
+type Math = libm::Libm<f64>;
+
+/// The car's position and rotation in radians
+#[cfg(not(feature = "glam"))]
+#[repr(transparent)]
+#[derive(Clone, Copy, Debug, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "rkyv",
+    derive(rkyv::Serialize, rkyv::Deserialize, rkyv::Archive)
+)]
+pub struct PosRot([f64; 3]);
+
+#[cfg(not(feature = "glam"))]
+impl PosRot {
+    /// Create a new [`PosRot`] from a position and rotation
+    #[inline]
+    #[must_use]
+    pub const fn from_floats(x: f64, y: f64, rot: f64) -> Self {
+        Self([x, y, rot])
+    }
+
+    /// Get the x position
+    #[inline]
+    #[must_use]
+    pub const fn x(&self) -> f64 {
+        self.0[0]
+    }
+
+    /// Get the y position
+    #[inline]
+    #[must_use]
+    pub const fn y(&self) -> f64 {
+        self.0[1]
+    }
+
+    /// Get the rotation
+    #[inline]
+    #[must_use]
+    pub const fn rot(&self) -> f64 {
+        self.0[2]
+    }
+}
+
+/// The car's position and rotation in radians
+#[cfg(feature = "glam")]
+#[derive(Clone, Copy, Debug, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "rkyv",
+    derive(rkyv::Serialize, rkyv::Deserialize, rkyv::Archive)
+)]
+pub struct PosRot(DVec2, f64);
+
+#[cfg(feature = "glam")]
+impl PosRot {
+    /// Create a new [`PosRot`] from a [`DVec2`] and rotation
+    #[inline]
+    #[must_use]
+    pub const fn new(pos: DVec2, rot: f64) -> Self {
+        Self(pos, rot)
+    }
+
+    /// Create a new [`PosRot`] from a position and rotation
+    #[inline]
+    #[must_use]
+    pub const fn from_floats(x: f64, y: f64, rot: f64) -> Self {
+        Self(DVec2::new(x, y), rot)
+    }
+
+    /// Get the position
+    #[inline]
+    #[must_use]
+    pub const fn pos(&self) -> DVec2 {
+        self.0
+    }
+
+    /// Get the x position
+    #[inline]
+    #[must_use]
+    pub const fn x(&self) -> f64 {
+        self.0.x
+    }
+
+    /// Get the y position
+    #[inline]
+    #[must_use]
+    pub const fn y(&self) -> f64 {
+        self.0.y
+    }
+
+    /// Get the rotation
+    #[inline]
+    #[must_use]
+    pub const fn rot(&self) -> f64 {
+        self.1
+    }
+}
+
+impl PosRot {
+    #[inline]
+    #[must_use]
+    pub(crate) const fn from_rot(rot: Self) -> Self {
+        Self::from_floats(0., 0., rot.rot())
+    }
+}
+
+impl Add<Self> for PosRot {
+    type Output = Self;
+
+    #[inline]
+    fn add(self, rhs: Self) -> Self {
+        Self::from_floats(
+            self.x() + rhs.x(),
+            self.y() + rhs.y(),
+            self.rot() + rhs.rot(),
+        )
+    }
+}
+
+impl From<[f64; 3]> for PosRot {
+    #[inline]
+    fn from(posrot: [f64; 3]) -> Self {
+        Self::from_floats(posrot[0], posrot[1], posrot[2])
+    }
+}
+
+/// The normalized lengths of the path's segments
+pub type Params = [f64; 3];
+
+/// Ensure the given number is between 0 and 2pi
+///
+/// # Arguments
+///
+/// * `theta`: The value to be modded
+#[inline]
+#[must_use]
+pub(crate) fn mod2pi(theta: f64) -> f64 {
+    let r = theta % TAU;
+    if r < 0.0 { r + TAU } else { r }
+}
 
 /// The pre-calculated information that applies to every path type
 ///
@@ -24,15 +166,15 @@ type Math = libm::Libm<FloatType>;
     derive(rkyv::Serialize, rkyv::Deserialize, rkyv::Archive)
 )]
 pub struct Intermediate {
-    alpha: FloatType,
-    beta: FloatType,
-    d: FloatType,
-    sa: FloatType,
-    sb: FloatType,
-    ca: FloatType,
-    cb: FloatType,
-    c_ab: FloatType,
-    d_sq: FloatType,
+    alpha: f64,
+    beta: f64,
+    d: f64,
+    sa: f64,
+    sb: f64,
+    ca: f64,
+    cb: f64,
+    c_ab: f64,
+    d_sq: f64,
 }
 
 impl Intermediate {
@@ -47,7 +189,8 @@ impl Intermediate {
     /// # Examples
     ///
     /// ```
-    /// use dubins_paths::{consts::PI, Intermediate, PosRot};
+    /// use core::f64::consts::PI;
+    /// use dubins_paths::f64::{Intermediate, PosRot};
     ///
     /// // The starting position
     /// let q0 = PosRot::from_floats(0., 0., PI / 4.);
@@ -59,7 +202,7 @@ impl Intermediate {
     /// let intermediate_results = Intermediate::new(q0, q1, rho);
     /// ```
     #[must_use]
-    pub fn new(q0: PosRot, q1: PosRot, rho: FloatType) -> Self {
+    pub fn new(q0: PosRot, q1: PosRot, rho: f64) -> Self {
         debug_assert!(rho > 0.);
 
         let dx = q1.x() - q0.x();
@@ -200,9 +343,17 @@ impl Intermediate {
     /// # Examples
     ///
     /// ```
-    /// use dubins_paths::{consts::PI, Intermediate, PathType, Params, Result as DubinsResult};
+    /// use core::f64::consts::PI;
+    /// use dubins_paths::{
+    ///     PathType, Result as DubinsResult,
+    ///     f64::{Intermediate, Params},
+    /// };
     ///
-    /// let intermediate_results = Intermediate::new([0., 0., PI / 4.].into(), [100., -100., PI * (3. / 4.)].into(), 11.6);
+    /// let intermediate_results = Intermediate::new(
+    ///     [0., 0., PI / 4.].into(),
+    ///     [100., -100., PI * (3. / 4.)].into(),
+    ///     11.6,
+    /// );
     ///
     /// let word: DubinsResult<Params> = intermediate_results.word(PathType::LSR);
     ///
@@ -232,7 +383,7 @@ pub struct DubinsPath {
     /// The initial location (x, y, theta)
     pub qi: PosRot,
     /// The model's turn radius (forward velocity / angular velocity)
-    pub rho: FloatType,
+    pub rho: f64,
     /// The normalized lengths of the three segments
     pub param: Params,
     /// The type of the path
@@ -253,7 +404,11 @@ impl DubinsPath {
     /// # Examples
     ///
     /// ```
-    /// use dubins_paths::{consts::PI, DubinsPath, PosRot, SegmentType};
+    /// use core::f64::consts::PI;
+    /// use dubins_paths::{
+    ///     SegmentType,
+    ///     f64::{DubinsPath, PosRot},
+    /// };
     ///
     /// // Normalized distance along the segement (distance / rho)
     /// let t = 0.32158;
@@ -267,7 +422,7 @@ impl DubinsPath {
     ///
     /// [`sample`]: DubinsPath::sample
     #[must_use]
-    pub fn segment(t: FloatType, qi: PosRot, type_: SegmentType) -> PosRot {
+    pub fn segment(t: f64, qi: PosRot, type_: SegmentType) -> PosRot {
         let rot = qi.rot();
         let st = Math::sin(rot);
         let ct = Math::cos(rot);
@@ -301,9 +456,15 @@ impl DubinsPath {
     /// * `t`: The travel distance - must be less than the total length of the path
     ///
     /// ```
-    /// use dubins_paths::{consts::PI, DubinsPath, PosRot};
+    /// use core::f64::consts::PI;
+    /// use dubins_paths::f64::{DubinsPath, PosRot};
     ///
-    /// let shortest_path_possible = DubinsPath::shortest_from(PosRot::from_floats(0., 0., PI / 4.), PosRot::from_floats(100., -100., PI * (3. / 4.)), 11.6).unwrap();
+    /// let shortest_path_possible = DubinsPath::shortest_from(
+    ///     PosRot::from_floats(0., 0., PI / 4.),
+    ///     PosRot::from_floats(100., -100., PI * (3. / 4.)),
+    ///     11.6,
+    /// )
+    /// .unwrap();
     ///
     /// // Find the halfway point of the path
     /// let t = shortest_path_possible.length() / 2.;
@@ -311,7 +472,7 @@ impl DubinsPath {
     /// let position: PosRot = shortest_path_possible.sample(t);
     /// ```
     #[must_use]
-    pub fn sample(&self, t: FloatType) -> PosRot {
+    pub fn sample(&self, t: f64) -> PosRot {
         // tprime is the normalised variant of the parameter t
         let tprime = t / self.rho;
         let types = self.path_type.to_segment_types();
@@ -339,7 +500,7 @@ impl DubinsPath {
     #[cfg(feature = "alloc")]
     fn sample_cached(
         &self,
-        tprime: FloatType,
+        tprime: f64,
         types: [SegmentType; 3],
         qi: PosRot,
         q1: PosRot,
@@ -372,7 +533,8 @@ impl DubinsPath {
     /// # Examples
     ///
     /// ```
-    /// use dubins_paths::{consts::PI, DubinsPath, PathType, PosRot, Result as DubinsResult};
+    /// use core::f64::consts::PI;
+    /// use dubins_paths::{f64::{DubinsPath, PosRot}, PathType, Result as DubinsResult};
     ///
     /// // The starting position
     /// let q0: PosRot = [0., 0., PI / 4.].into();
@@ -389,7 +551,7 @@ impl DubinsPath {
     ///
     /// assert!(shortest_path_in_selection.is_ok());
     /// ```
-    pub fn shortest_in(q0: PosRot, q1: PosRot, rho: FloatType, types: &[PathType]) -> Result<Self> {
+    pub fn shortest_in(q0: PosRot, q1: PosRot, rho: f64, types: &[PathType]) -> Result<Self> {
         let intermediate_results = Intermediate::new(q0, q1, rho);
 
         let params = types.iter().copied().flat_map(|path_type| {
@@ -399,7 +561,7 @@ impl DubinsPath {
         });
 
         let mut best = Err(NoPathError);
-        let mut best_sum = FloatType::INFINITY;
+        let mut best_sum = f64::INFINITY;
 
         for (param, path_type) in params {
             let sum = param.iter().sum();
@@ -433,7 +595,11 @@ impl DubinsPath {
     /// # Examples
     ///
     /// ```
-    /// use dubins_paths::{consts::PI, DubinsPath, PathType, PosRot, Result as DubinsResult};
+    /// use core::f64::consts::PI;
+    /// use dubins_paths::{
+    ///     PathType, Result as DubinsResult,
+    ///     f64::{DubinsPath, PosRot},
+    /// };
     ///
     /// // The starting position
     /// let q0: PosRot = [0., 0., PI / 4.].into();
@@ -446,7 +612,7 @@ impl DubinsPath {
     ///
     /// assert!(shortest_path_possible.is_ok());
     /// ```
-    pub fn shortest_from(q0: PosRot, q1: PosRot, rho: FloatType) -> Result<Self> {
+    pub fn shortest_from(q0: PosRot, q1: PosRot, rho: f64) -> Result<Self> {
         Self::shortest_in(q0, q1, rho, &PathType::ALL)
     }
 
@@ -466,7 +632,11 @@ impl DubinsPath {
     /// # Examples
     ///
     /// ```
-    /// use dubins_paths::{consts::PI, DubinsPath, PathType, PosRot, Result as DubinsResult};
+    /// use core::f64::consts::PI;
+    /// use dubins_paths::{
+    ///     PathType, Result as DubinsResult,
+    ///     f64::{DubinsPath, PosRot},
+    /// };
     ///
     /// // The starting position
     /// let q0: PosRot = [0., 0., PI / 4.].into();
@@ -481,7 +651,7 @@ impl DubinsPath {
     ///
     /// assert!(path.is_ok());
     /// ```
-    pub fn new(q0: PosRot, q1: PosRot, rho: FloatType, path_type: PathType) -> Result<Self> {
+    pub fn new(q0: PosRot, q1: PosRot, rho: f64, path_type: PathType) -> Result<Self> {
         Ok(Self {
             qi: q0,
             rho,
@@ -495,15 +665,21 @@ impl DubinsPath {
     /// # Examples
     ///
     /// ```
-    /// use dubins_paths::{consts::PI, DubinsPath};
+    /// use core::f64::consts::PI;
+    /// use dubins_paths::f64::DubinsPath;
     ///
-    /// let shortest_path_possible = DubinsPath::shortest_from([0., 0., PI / 4.].into(), [100., -100., PI * (3. / 4.)].into(), 11.6).unwrap();
+    /// let shortest_path_possible = DubinsPath::shortest_from(
+    ///     [0., 0., PI / 4.].into(),
+    ///     [100., -100., PI * (3. / 4.)].into(),
+    ///     11.6,
+    /// )
+    /// .unwrap();
     ///
     /// let total_path_length = shortest_path_possible.length();
     /// ```
     #[inline]
     #[must_use]
-    pub fn length(&self) -> FloatType {
+    pub fn length(&self) -> f64 {
         (self.param[0] + self.param[1] + self.param[2]) * self.rho
     }
 
@@ -516,9 +692,15 @@ impl DubinsPath {
     /// # Examples
     ///
     /// ```
-    /// use dubins_paths::{consts::PI, DubinsPath};
+    /// use core::f64::consts::PI;
+    /// use dubins_paths::f64::DubinsPath;
     ///
-    /// let shortest_path_possible = DubinsPath::shortest_from([0., 0., PI / 4.].into(), [100., -100., PI * (3. / 4.)].into(), 11.6).unwrap();
+    /// let shortest_path_possible = DubinsPath::shortest_from(
+    ///     [0., 0., PI / 4.].into(),
+    ///     [100., -100., PI * (3. / 4.)].into(),
+    ///     11.6,
+    /// )
+    /// .unwrap();
     ///
     /// // Each path has 3 segments
     /// // i must be in the range [0, 2]
@@ -526,7 +708,7 @@ impl DubinsPath {
     /// ```
     #[inline]
     #[must_use]
-    pub fn segment_length(&self, i: usize) -> FloatType {
+    pub fn segment_length(&self, i: usize) -> f64 {
         self.param[i] * self.rho
     }
 
@@ -540,19 +722,28 @@ impl DubinsPath {
     /// # Examples
     ///
     /// ```
-    /// use dubins_paths::{consts::PI, DubinsPath, PosRot};
+    /// use core::f64::consts::PI;
+    /// use dubins_paths::f64::{DubinsPath, PosRot};
     ///
-    /// let shortest_path_possible = DubinsPath::shortest_from([0., 0., PI / 4.].into(), [100., -100., PI * (3. / 4.)].into(), 11.6).unwrap();
+    /// let shortest_path_possible = DubinsPath::shortest_from(
+    ///     [0., 0., PI / 4.].into(),
+    ///     [100., -100., PI * (3. / 4.)].into(),
+    ///     11.6,
+    /// )
+    /// .unwrap();
     ///
     /// // The distance between each sample point
     /// let step_distance = 5.;
     ///
     /// let samples: Vec<PosRot> = shortest_path_possible.sample_many(step_distance);
-    /// assert_eq!(samples.len(), (shortest_path_possible.length() / step_distance) as usize + 1);
+    /// assert_eq!(
+    ///     samples.len(),
+    ///     (shortest_path_possible.length() / step_distance) as usize + 1
+    /// );
     /// ```
     #[must_use]
     #[cfg(feature = "alloc")]
-    pub fn sample_many(&self, step_distance: FloatType) -> Vec<PosRot> {
+    pub fn sample_many(&self, step_distance: f64) -> Vec<PosRot> {
         // special case where we know to sample the whole range
         debug_assert!(step_distance > 0.);
 
@@ -578,7 +769,7 @@ impl DubinsPath {
             .map(|i| {
                 // There's nothing we can do about the precision loss
                 #[allow(clippy::cast_precision_loss)]
-                (i as FloatType * sample_step_distance)
+                (i as f64 * sample_step_distance)
             })
             .map(|t| self.sample_cached(t, types, qi, q1, q2))
             .chain(core::iter::once(self.sample_cached(end, types, qi, q1, q2)))
@@ -595,9 +786,15 @@ impl DubinsPath {
     /// # Examples
     ///
     /// ```
-    /// use dubins_paths::{consts::PI, DubinsPath, PosRot};
+    /// use core::f64::consts::PI;
+    /// use dubins_paths::f64::{DubinsPath, PosRot};
     ///
-    /// let shortest_path_possible = DubinsPath::shortest_from([0., 0., PI / 4.].into(), [100., -100., PI * (3. / 4.)].into(), 11.6).unwrap();
+    /// let shortest_path_possible = DubinsPath::shortest_from(
+    ///     [0., 0., PI / 4.].into(),
+    ///     [100., -100., PI * (3. / 4.)].into(),
+    ///     11.6,
+    /// )
+    /// .unwrap();
     ///
     /// // The distance between each sample point
     /// let step_distance = 5.;
@@ -610,9 +807,9 @@ impl DubinsPath {
     /// ```
     #[must_use]
     #[cfg(feature = "alloc")]
-    pub fn sample_many_range<T: RangeBounds<FloatType>>(
+    pub fn sample_many_range<T: RangeBounds<f64>>(
         &self,
-        step_distance: FloatType,
+        step_distance: f64,
         range: T,
     ) -> Vec<PosRot> {
         debug_assert!(step_distance > 0.);
@@ -653,7 +850,7 @@ impl DubinsPath {
             .map(|i| {
                 // There's nothing we can do about the precision loss
                 #[allow(clippy::cast_precision_loss)]
-                (i as FloatType * sample_step_distance + start)
+                (i as f64 * sample_step_distance + start)
             })
             .map(|t| self.sample_cached(t, types, qi, q1, q2))
             .collect();
@@ -674,9 +871,15 @@ impl DubinsPath {
     /// # Examples
     ///
     /// ```
-    /// use dubins_paths::{consts::PI, DubinsPath, PosRot};
+    /// use core::f64::consts::PI;
+    /// use dubins_paths::f64::{DubinsPath, PosRot};
     ///
-    /// let shortest_path_possible = DubinsPath::shortest_from([0., 0., PI / 4.].into(), [100., -100., PI * (3. / 4.)].into(), 11.6).unwrap();
+    /// let shortest_path_possible = DubinsPath::shortest_from(
+    ///     [0., 0., PI / 4.].into(),
+    ///     [100., -100., PI * (3. / 4.)].into(),
+    ///     11.6,
+    /// )
+    /// .unwrap();
     ///
     /// let endpoint: PosRot = shortest_path_possible.endpoint();
     /// ```
@@ -696,9 +899,15 @@ impl DubinsPath {
     /// # Examples
     ///
     /// ```
-    /// use dubins_paths::{consts::PI, DubinsPath};
+    /// use core::f64::consts::PI;
+    /// use dubins_paths::f64::DubinsPath;
     ///
-    /// let shortest_path_possible = DubinsPath::shortest_from([0., 0., PI / 4.].into(), [100., -100., PI * (3. / 4.)].into(), 11.6).unwrap();
+    /// let shortest_path_possible = DubinsPath::shortest_from(
+    ///     [0., 0., PI / 4.].into(),
+    ///     [100., -100., PI * (3. / 4.)].into(),
+    ///     11.6,
+    /// )
+    /// .unwrap();
     ///
     /// // End the path halfway through the real path
     /// let t = shortest_path_possible.length() / 2.;
@@ -706,7 +915,7 @@ impl DubinsPath {
     /// let subpath: DubinsPath = shortest_path_possible.extract_subpath(t);
     /// ```
     #[must_use]
-    pub fn extract_subpath(&self, t: FloatType) -> Self {
+    pub fn extract_subpath(&self, t: f64) -> Self {
         // calculate the true parameter
         let tprime = t / self.rho;
 
