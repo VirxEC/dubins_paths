@@ -1,28 +1,40 @@
 [package]
 name = "dubins_paths"
-version = "2.7.1"
+version = "3.0.0"
 authors = ["VirxEC"]
-edition = "2021"
+edition = "2024"
 description = "Rust code for calculating Dubin's Paths"
 readme = "README.md"
 repository = "https://github.com/VirxEC/dubins_paths"
 license = "MIT"
 keywords = ["physics", "simulation", "dubin", "path-finding"]
 categories = ["science", "simulation", "algorithms"]
-rust-version = "1.68.2"
+rust-version = "1.85.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[lints.rust]
+unsafe_code = "forbid"
+
 [dev-dependencies]
 approx = "0.5.1"
-criterion = "0.5.1"
+criterion = "0.8.0"
 rand = "0.9.2"
 
 [dependencies]
-glam = { version = "0.30.5", optional = true }
+glam = { version = "0.30.5", default-features = false, optional = true }
+libm = { version = "0.2.15", optional = true }
+serde = { version = "1.0.228", default-features = false, features = ["derive"], optional = true }
+rkyv = { version = "0.8.12", default-features = false, optional = true }
 
 [features]
-f64 = []
+default = ["std"]
+libm = ["dep:libm", "glam?/nostd-libm"]
+std = ["alloc", "glam?/std", "serde?/std", "rkyv?/std"]
+alloc = ["serde?/alloc", "rkyv?/alloc"]
+serde = ["dep:serde", "glam?/serde"]
+rkyv = ["dep:rkyv", "glam?/rkyv"]
+bytecheck = ["rkyv", "glam?/bytecheck"]
 
 [profile.release]
 codegen-units = 1
@@ -36,3 +48,8 @@ all-features = true
 [[bench]]
 name = "bench_dubins"
 harness = false
+required-features = ["alloc"]
+
+[[example]]
+name = "flamegraph"
+required-features = ["alloc"]

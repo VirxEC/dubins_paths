@@ -1,7 +1,11 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use dubins_paths::{DubinsPath, FloatType, PathType, PosRot, PI};
+use core::{f32::consts::PI, hint::black_box};
+use criterion::{Criterion, criterion_group, criterion_main};
+use dubins_paths::{
+    PathType,
+    f32::{DubinsPath, PosRot},
+};
 
-const TURN_RADIUS: FloatType = 1. / 0.00076;
+const TURN_RADIUS: f32 = 1. / 0.00076;
 
 fn setup_benchmark() -> (PosRot, PosRot) {
     let q0: PosRot = [2000., 2000., 0.].into();
@@ -44,7 +48,7 @@ fn bench_shortest_path(c: &mut Criterion) {
 }
 
 fn bench_many_sample(c: &mut Criterion) {
-    const STEP_DISTANCE: FloatType = 1.;
+    const STEP_DISTANCE: f32 = 1.;
     let (q0, q1) = setup_benchmark();
     let path = DubinsPath::shortest_from(q0, q1, TURN_RADIUS).unwrap();
 
