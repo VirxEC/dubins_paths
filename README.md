@@ -34,7 +34,7 @@ let q1 = [100., -100., PI * (3. / 4.)].into();
 
 // The car's turning radius (must be > 0)
 // This can be calculated by taking a cars angular velocity and dividing it by the car's forward velocity
-// `turn radius = ang_vel / forward_vel`
+// `turn radius = forward_vel / ang_vel`
 let rho = 11.6;
 
 // Calculate the shortest possible path between these two points with the given turning radius
