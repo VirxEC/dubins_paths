@@ -1,12 +1,12 @@
 use core::f32::consts::TAU;
+
 use dubins_paths::{
     PathType,
     f32::{DubinsPath, PosRot},
 };
-use rand::Rng;
-
 #[cfg(feature = "glam")]
 use glam::Vec3;
+use rand::RngExt;
 
 const POSROT_EPSILON: f32 = 0.00001;
 const TURN_RADIUS: f32 = 1. / 0.00076;

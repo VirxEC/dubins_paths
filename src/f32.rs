@@ -1,14 +1,13 @@
-use crate::{NoPathError, PathType, Result, SegmentType};
+#[cfg(feature = "alloc")]
+use alloc::vec::Vec;
+#[cfg(feature = "alloc")]
+use core::ops::{Bound, RangeBounds};
 use core::{f32::consts::TAU, ops::Add};
 
 #[cfg(feature = "glam")]
 use glam::Vec2;
 
-#[cfg(feature = "alloc")]
-use alloc::vec::Vec;
-
-#[cfg(feature = "alloc")]
-use core::ops::{Bound, RangeBounds};
+use crate::{NoPathError, PathType, Result, SegmentType};
 
 #[cfg(not(feature = "libm"))]
 type Math = f32;
@@ -190,6 +189,7 @@ impl Intermediate {
     ///
     /// ```
     /// use core::f32::consts::PI;
+    ///
     /// use dubins_paths::f32::{Intermediate, PosRot};
     ///
     /// // The starting position
@@ -344,6 +344,7 @@ impl Intermediate {
     ///
     /// ```
     /// use core::f32::consts::PI;
+    ///
     /// use dubins_paths::{
     ///     PathType, Result as DubinsResult,
     ///     f32::{Intermediate, Params},
@@ -405,6 +406,7 @@ impl DubinsPath {
     ///
     /// ```
     /// use core::f32::consts::PI;
+    ///
     /// use dubins_paths::{
     ///     SegmentType,
     ///     f32::{DubinsPath, PosRot},
@@ -457,6 +459,7 @@ impl DubinsPath {
     ///
     /// ```
     /// use core::f32::consts::PI;
+    ///
     /// use dubins_paths::f32::{DubinsPath, PosRot};
     ///
     /// let shortest_path_possible = DubinsPath::shortest_from(
@@ -596,6 +599,7 @@ impl DubinsPath {
     ///
     /// ```
     /// use core::f32::consts::PI;
+    ///
     /// use dubins_paths::{
     ///     PathType, Result as DubinsResult,
     ///     f32::{DubinsPath, PosRot},
@@ -633,6 +637,7 @@ impl DubinsPath {
     ///
     /// ```
     /// use core::f32::consts::PI;
+    ///
     /// use dubins_paths::{
     ///     PathType, Result as DubinsResult,
     ///     f32::{DubinsPath, PosRot},
@@ -666,6 +671,7 @@ impl DubinsPath {
     ///
     /// ```
     /// use core::f32::consts::PI;
+    ///
     /// use dubins_paths::f32::DubinsPath;
     ///
     /// let shortest_path_possible = DubinsPath::shortest_from(
@@ -693,6 +699,7 @@ impl DubinsPath {
     ///
     /// ```
     /// use core::f32::consts::PI;
+    ///
     /// use dubins_paths::f32::DubinsPath;
     ///
     /// let shortest_path_possible = DubinsPath::shortest_from(
@@ -723,6 +730,7 @@ impl DubinsPath {
     ///
     /// ```
     /// use core::f32::consts::PI;
+    ///
     /// use dubins_paths::f32::{DubinsPath, PosRot};
     ///
     /// let shortest_path_possible = DubinsPath::shortest_from(
@@ -787,6 +795,7 @@ impl DubinsPath {
     ///
     /// ```
     /// use core::f32::consts::PI;
+    ///
     /// use dubins_paths::f32::{DubinsPath, PosRot};
     ///
     /// let shortest_path_possible = DubinsPath::shortest_from(
@@ -872,6 +881,7 @@ impl DubinsPath {
     ///
     /// ```
     /// use core::f32::consts::PI;
+    ///
     /// use dubins_paths::f32::{DubinsPath, PosRot};
     ///
     /// let shortest_path_possible = DubinsPath::shortest_from(
@@ -900,6 +910,7 @@ impl DubinsPath {
     ///
     /// ```
     /// use core::f32::consts::PI;
+    ///
     /// use dubins_paths::f32::DubinsPath;
     ///
     /// let shortest_path_possible = DubinsPath::shortest_from(

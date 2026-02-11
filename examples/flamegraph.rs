@@ -1,8 +1,9 @@
 #![allow(clippy::incompatible_msrv)]
 
 use core::{f32::consts::TAU, hint::black_box};
+
 use dubins_paths::f32::DubinsPath;
-use rand::Rng;
+use rand::RngExt as _;
 
 fn main() {
     let runs = 1_000_000;

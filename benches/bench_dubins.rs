@@ -1,4 +1,5 @@
 use core::{f32::consts::PI, hint::black_box};
+
 use criterion::{Criterion, criterion_group, criterion_main};
 use dubins_paths::{
     PathType,
