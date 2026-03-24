@@ -9,7 +9,7 @@ compile_error!("Either the std or the libm feature is required");
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
-#[cfg(feature = "std")]
+#[cfg(all(feature = "std", not(feature = "libm")))]
 extern crate std;
 
 /// [`glam`] is a crate that provides vector types, and used to provide a more ergonomic API
