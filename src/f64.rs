@@ -617,8 +617,8 @@ impl DubinsPathInfo {
     /// let pos = [10., -10.];
     /// let distance_traveled = path_info.est_distance_traveled(pos);
     ///
-    /// // Sample a point 15 units ahead of us on the path
-    /// let future_pos = shortest_path_possible.sample(distance_traveled + 15.);
+    /// // Get the position along the path
+    /// let future_pos = shortest_path_possible.sample(distance_traveled);
     /// ```
     #[must_use]
     pub fn est_distance_traveled(&self, point: [f64; 2]) -> f64 {

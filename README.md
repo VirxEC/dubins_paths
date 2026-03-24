@@ -20,7 +20,7 @@ This will calculate the path that connects the current position and rotation of 
 use core::f32::consts::PI;
 use dubins_paths::{
     f32::{DubinsPath, PosRot},
-    Result as DubinsResul
+    Result as DubinsResult
 };
 
 // PosRot represents the car's (Pos)ition and (Rot)ation
