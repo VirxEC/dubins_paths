@@ -114,7 +114,7 @@ fn bench_shortest_path(c: &mut Criterion) {
 }
 
 fn bench_many_sample(c: &mut Criterion) {
-    const STEP_DISTANCE: f32 = 1.;
+    const STEP_DISTANCE: f32 = 19.;
     let (q0, q1) = setup_benchmark();
     let path = DubinsPath::shortest_from(q0, q1, TURN_RADIUS).unwrap();
 
