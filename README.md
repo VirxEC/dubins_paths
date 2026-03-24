@@ -18,7 +18,10 @@ This will calculate the path that connects the current position and rotation of 
 
 ```rust
 use core::f32::consts::PI;
-use dubins_paths::{f32::{DubinsPath, PosRot}, Result as DubinsResult};
+use dubins_paths::{
+    f32::{DubinsPath, PosRot},
+    Result as DubinsResul
+};
 
 // PosRot represents the car's (Pos)ition and (Rot)ation
 // Where x and y are the coordinates on a 2d plane
