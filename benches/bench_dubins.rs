@@ -37,7 +37,7 @@ fn generate_random_points(seed_rng: &mut SmallRng) -> Vec<[f32; 2]> {
     let mut rng = SmallRng::seed_from_u64(seed_rng.next_u64())
         .sample_iter(Uniform::new(-2000.0, 2000.0).unwrap());
 
-    (0..4 * 120)
+    (0..3 * 120)
         .map(|_| [rng.next().unwrap(), rng.next().unwrap()])
         .collect()
 }
