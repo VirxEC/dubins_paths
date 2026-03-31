@@ -415,11 +415,6 @@ impl Pos {
     const ZERO: Self = Self { x: 0., y: 0. };
 
     #[inline]
-    const fn new(x: f64, y: f64) -> Self {
-        Self { x, y }
-    }
-
-    #[inline]
     fn dot(self, other: Self) -> f64 {
         self.x * other.x + self.y * other.y
     }
@@ -589,7 +584,6 @@ pub struct DubinsPathInfo {
     segment_types: [SegmentType; 3],
     centers: [Pos; 3],
     segment_endpoints: [PosRot; 4],
-    segment_rot: [[f64; 2]; 3],
     start_end_ang: [[f64; 2]; 3],
     directed_ang_diff: [f64; 3],
 }
@@ -624,7 +618,7 @@ impl DubinsPathInfo {
     pub fn est_distance_traveled(&self, point: [f64; 2]) -> f64 {
         let point = (Pos::from(point) - self.qi) / self.rho;
 
-        let mut closest_distance = f64::INFINITY;
+        let mut closest_distance_sq = f64::INFINITY;
         let mut distance_along_path = 0.0;
         let mut total_distance = 0.0;
 
@@ -636,7 +630,7 @@ impl DubinsPathInfo {
             let start: Pos = segment_start.into();
             let end: Pos = segment_end.into();
 
-            let (closest, t) = match segment_type {
+            let (distance_sq, t) = match segment_type {
                 SegmentType::S => {
                     let delta = end - start;
                     let length_sq = delta.length_squared();
@@ -645,8 +639,10 @@ impl DubinsPathInfo {
                     }
 
                     let t = ((point - start).dot(delta) / length_sq).clamp(0.0, 1.0);
+                    let closest = delta * t + start;
+                    let distance_sq = (point - closest).length_squared();
 
-                    (delta * t + start, t)
+                    (distance_sq, t)
                 }
                 SegmentType::L => {
                     let t = inv_lerp_arc::<true>(
@@ -656,16 +652,19 @@ impl DubinsPathInfo {
                         self.start_end_ang[i][1],
                         self.directed_ang_diff[i],
                     );
-                    let [st, ct] = self.segment_rot[i];
-                    let pt = t * param;
 
-                    (
-                        Pos::new(
-                            Math::sin(segment_start.rot() + pt) - st,
-                            -Math::cos(segment_start.rot() + pt) + ct,
-                        ) + start,
-                        t,
-                    )
+                    let distance_sq = if t <= 0.0 {
+                        (point - start).length_squared()
+                    } else if t >= 1.0 {
+                        (point - end).length_squared()
+                    } else {
+                        let rel = point - self.centers[i];
+                        let rel_len = rel.length();
+                        let dist = rel_len - 1.0;
+                        dist * dist
+                    };
+
+                    (distance_sq, t)
                 }
                 SegmentType::R => {
                     let t = inv_lerp_arc::<false>(
@@ -675,22 +674,24 @@ impl DubinsPathInfo {
                         self.start_end_ang[i][1],
                         self.directed_ang_diff[i],
                     );
-                    let [st, ct] = self.segment_rot[i];
-                    let pt = t * param;
 
-                    (
-                        Pos::new(
-                            -Math::sin(segment_start.rot() - pt) + st,
-                            Math::cos(segment_start.rot() - pt) - ct,
-                        ) + start,
-                        t,
-                    )
+                    let distance_sq = if t <= 0.0 {
+                        (point - start).length_squared()
+                    } else if t >= 1.0 {
+                        (point - end).length_squared()
+                    } else {
+                        let rel = point - self.centers[i];
+                        let rel_len = rel.length();
+                        let dist = rel_len - 1.0;
+                        dist * dist
+                    };
+
+                    (distance_sq, t)
                 }
             };
 
-            let distance = (point - closest).length();
-            if distance < closest_distance {
-                closest_distance = distance;
+            if distance_sq < closest_distance_sq {
+                closest_distance_sq = distance_sq;
                 distance_along_path = (total_distance + t * param) * self.rho;
             }
 
@@ -776,7 +777,6 @@ impl DubinsPath {
     #[must_use]
     pub fn get_path_info(&self) -> DubinsPathInfo {
         let mut centers = [Pos::ZERO; 3];
-        let mut segment_rot = [[0.0; 2]; 3];
         let mut start_end_ang = [[0.0; 2]; 3];
         let mut directed_ang_diff = [0.0; 3];
 
@@ -816,13 +816,8 @@ impl DubinsPath {
                     start_end_ang[i] = [start_ang, end_ang];
                     directed_ang_diff[i] = directed_normalize_angle::<false>(end_ang - start_ang);
                 }
-                SegmentType::S => continue,
+                SegmentType::S => {}
             }
-
-            segment_rot[i] = [
-                Math::sin(segment_start.rot()),
-                Math::cos(segment_start.rot()),
-            ];
         }
 
         DubinsPathInfo {
@@ -832,7 +827,6 @@ impl DubinsPath {
             segment_types,
             centers,
             segment_endpoints,
-            segment_rot,
             start_end_ang,
             directed_ang_diff,
         }

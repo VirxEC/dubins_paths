@@ -19,10 +19,10 @@ all-features = true
 name = "flamegraph"
 required-features = ["alloc"]
 
-# [[example]]
-# name = "near"
-# path = "visual/near.rs"
-# required-features = ["alloc"]
+[[example]]
+name = "near"
+path = "visual/near.rs"
+required-features = ["alloc"]
 
 [[bench]]
 harness = false
@@ -38,7 +38,7 @@ serde = { version = "1.0.228", default-features = false, features = ["derive"], 
 [dev-dependencies]
 approx = "0.5.1"
 criterion = "0.8.0"
-# plotters = "0.3.3"
+plotters = "0.3.3"
 rand = "0.10.0"
 
 [features]
