@@ -2,7 +2,10 @@
 use alloc::vec::Vec;
 #[cfg(feature = "alloc")]
 use core::ops::{Bound, RangeBounds};
-use core::{f64::consts::TAU, ops::Add};
+use core::{
+    f64::consts::{PI, TAU},
+    ops::{Add, Div, Mul, Sub},
+};
 
 #[cfg(feature = "glam")]
 use glam::DVec2;
@@ -203,14 +206,18 @@ impl Intermediate {
     /// ```
     #[must_use]
     pub fn new(q0: PosRot, q1: PosRot, rho: f64) -> Self {
-        debug_assert!(rho > 0.);
+        debug_assert!(rho > 0., "rho must be greater than 0");
 
         let dx = q1.x() - q0.x();
         let dy = q1.y() - q0.y();
         let d = Math::hypot(dx, dy) / rho;
 
         // test required to prevent domain errors if dx=0 and dy=0
-        let theta = mod2pi(Math::atan2(dy, dx));
+        let theta = if d > 0.0 {
+            mod2pi(Math::atan2(dy, dx))
+        } else {
+            0.0
+        };
 
         let alpha = mod2pi(q0.rot() - theta);
         let beta = mod2pi(q1.rot() - theta);
@@ -373,6 +380,328 @@ impl Intermediate {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "rkyv",
+    derive(rkyv::Serialize, rkyv::Deserialize, rkyv::Archive)
+)]
+struct Pos {
+    x: f64,
+    y: f64,
+}
+
+impl From<PosRot> for Pos {
+    #[inline]
+    fn from(posrot: PosRot) -> Self {
+        Self {
+            x: posrot.x(),
+            y: posrot.y(),
+        }
+    }
+}
+
+impl From<[f64; 2]> for Pos {
+    #[inline]
+    fn from(arr: [f64; 2]) -> Self {
+        Self {
+            x: arr[0],
+            y: arr[1],
+        }
+    }
+}
+
+impl Pos {
+    const ZERO: Self = Self { x: 0., y: 0. };
+
+    #[inline]
+    fn dot(self, other: Self) -> f64 {
+        self.x * other.x + self.y * other.y
+    }
+
+    #[inline]
+    fn cross(self, other: Self) -> f64 {
+        self.x * other.y - self.y * other.x
+    }
+
+    #[inline]
+    fn length(self) -> f64 {
+        Math::hypot(self.x, self.y)
+    }
+
+    #[inline]
+    fn length_squared(self) -> f64 {
+        self.x * self.x + self.y * self.y
+    }
+
+    #[inline]
+    fn perp(self) -> Self {
+        Self {
+            x: -self.y,
+            y: self.x,
+        }
+    }
+
+    #[inline]
+    fn to_angle(self) -> f64 {
+        Math::atan2(self.y, self.x)
+    }
+}
+
+impl Add for Pos {
+    type Output = Self;
+
+    #[inline]
+    fn add(self, rhs: Self) -> Self {
+        Self {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+        }
+    }
+}
+
+impl Sub for Pos {
+    type Output = Self;
+
+    #[inline]
+    fn sub(self, rhs: Self) -> Self {
+        Self {
+            x: self.x - rhs.x,
+            y: self.y - rhs.y,
+        }
+    }
+}
+
+impl Mul<f64> for Pos {
+    type Output = Self;
+
+    #[inline]
+    fn mul(self, rhs: f64) -> Self {
+        Self {
+            x: self.x * rhs,
+            y: self.y * rhs,
+        }
+    }
+}
+
+impl Div<f64> for Pos {
+    type Output = Self;
+
+    #[inline]
+    fn div(self, rhs: f64) -> Self {
+        Self {
+            x: self.x / rhs,
+            y: self.y / rhs,
+        }
+    }
+}
+
+fn get_arc_center<const CCW: bool>(start: Pos, end: Pos, segment_len: f64) -> Pos {
+    let chord = end - start;
+    let chord_len = chord.length();
+    if chord_len == 0. {
+        return start;
+    }
+
+    let normal = (chord / chord_len).perp();
+
+    let half_len = chord_len * 0.5;
+    let half = Math::sqrt(1.0 - half_len * half_len);
+    let mid = start + chord * 0.5;
+    let c1 = mid + normal * half;
+    let c2 = mid - normal * half;
+
+    // find the correct center by picking the one that results in the correct arc length
+    let start_ang_c1 = (start - c1).to_angle();
+    let end_ang_c1 = (end - c1).to_angle();
+    let total_c1 = directed_normalize_angle::<CCW>(end_ang_c1 - start_ang_c1);
+
+    let start_ang_c2 = (start - c2).to_angle();
+    let end_ang_c2 = (end - c2).to_angle();
+    let total_c2 = directed_normalize_angle::<CCW>(end_ang_c2 - start_ang_c2);
+
+    let target = if CCW { segment_len } else { -segment_len };
+    let err1 = (total_c1 - target).abs();
+    let err2 = (total_c2 - target).abs();
+
+    if err1 <= err2 { c1 } else { c2 }
+}
+
+#[inline]
+fn directed_normalize_angle<const CCW: bool>(angle: f64) -> f64 {
+    if CCW {
+        // clamp to [0, tau]
+        if angle < 0.0 { angle + TAU } else { angle }
+    } else {
+        // clamp to [-tau, 0]
+        if angle > 0.0 { angle - TAU } else { angle }
+    }
+}
+
+/// Returns (distance squared, t) where t is 0.0 or 1.0 if the point is outside the arc, and None if inside
+fn inv_lerp_arc<const CCW: bool>(
+    point: Pos,
+    center: Pos,
+    start: Pos,
+    end: Pos,
+    directed_ang_diff: f64,
+) -> (f64, Option<f64>) {
+    let start_dir = start - center;
+    let end_dir = end - center;
+    let rel = point - center;
+
+    let cross_start = start_dir.cross(rel);
+    let cross_end = rel.cross(end_dir);
+
+    let is_large = directed_ang_diff.abs() > PI;
+    let inside = if CCW {
+        if is_large {
+            cross_start >= 0.0 || cross_end >= 0.0
+        } else {
+            cross_start >= 0.0 && cross_end >= 0.0
+        }
+    } else {
+        if is_large {
+            cross_start <= 0.0 || cross_end <= 0.0
+        } else {
+            cross_start <= 0.0 && cross_end <= 0.0
+        }
+    };
+
+    if inside {
+        let rel_len = rel.length();
+        let dist = rel_len - 1.0;
+        (dist * dist, None)
+    } else {
+        let dist_start = (point - start).length_squared();
+        let dist_end = (point - end).length_squared();
+        if dist_start <= dist_end {
+            (dist_start, Some(0.0))
+        } else {
+            (dist_end, Some(1.0))
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "rkyv",
+    derive(rkyv::Serialize, rkyv::Deserialize, rkyv::Archive)
+)]
+/// Pre-calculated information about the path that accelerates calls to [`est_distance_traveled`].
+///
+/// This struct can be obtained by calling [`DubinsPath::get_path_info`]
+///
+/// [`est_distance_traveled`]: DubinsPathInfo::est_distance_traveled
+pub struct DubinsPathInfo {
+    qi: Pos,
+    rho: f64,
+    param: Params,
+    segment_types: [SegmentType; 3],
+    centers: [Pos; 3],
+    segment_endpoints: [Pos; 4],
+    start_angles: [f64; 3],
+    directed_ang_diff: [f64; 3],
+}
+
+impl DubinsPathInfo {
+    /// Finds the closest point on the path to `point` and returns the distance along the path to that point.
+    ///
+    /// # Arguments
+    ///
+    /// * `pos`: The current position of the car as an `[x, y]` array.
+    ///
+    /// ```
+    /// use core::f64::consts::PI;
+    ///
+    /// use dubins_paths::f64::{DubinsPath, PosRot};
+    ///
+    /// let shortest_path_possible = DubinsPath::shortest_from(
+    ///     [0., 0., PI / 4.].into(),
+    ///     [100., -100., PI * (3. / 4.)].into(),
+    ///     11.6,
+    /// )
+    /// .unwrap();
+    /// let path_info = shortest_path_possible.get_path_info();
+    ///
+    /// let pos = [10., -10.];
+    /// let distance_traveled = path_info.est_distance_traveled(pos);
+    ///
+    /// // Get the position along the path
+    /// let future_pos = shortest_path_possible.sample(distance_traveled);
+    /// ```
+    #[must_use]
+    pub fn est_distance_traveled(&self, point: [f64; 2]) -> f64 {
+        let point = (Pos::from(point) - self.qi) / self.rho;
+
+        let mut closest_distance_sq = f64::INFINITY;
+        let mut distance_along_path = 0.0;
+        let mut total_distance = 0.0;
+
+        for (i, (segment_type, param)) in self.segment_types.into_iter().zip(self.param).enumerate()
+        {
+            let start = self.segment_endpoints[i];
+            let end = self.segment_endpoints[i + 1];
+
+            let (distance_sq, t_opt) = match segment_type {
+                SegmentType::S => {
+                    let delta = end - start;
+                    let length_sq = delta.length_squared();
+                    if length_sq == 0.0 {
+                        continue;
+                    }
+
+                    let t = ((point - start).dot(delta) / length_sq).clamp(0.0, 1.0);
+                    let closest = delta * t + start;
+                    let distance_sq = (point - closest).length_squared();
+
+                    (distance_sq, Some(t))
+                }
+                SegmentType::L => inv_lerp_arc::<true>(
+                    point,
+                    self.centers[i],
+                    start,
+                    end,
+                    self.directed_ang_diff[i],
+                ),
+                SegmentType::R => inv_lerp_arc::<false>(
+                    point,
+                    self.centers[i],
+                    start,
+                    end,
+                    self.directed_ang_diff[i],
+                ),
+            };
+
+            if distance_sq < closest_distance_sq {
+                let t = t_opt.unwrap_or_else(|| {
+                    let point_ang = (point - self.centers[i]).to_angle();
+
+                    match segment_type {
+                        SegmentType::L => {
+                            directed_normalize_angle::<true>(point_ang - self.start_angles[i])
+                                / self.directed_ang_diff[i]
+                        }
+                        SegmentType::R => {
+                            directed_normalize_angle::<false>(point_ang - self.start_angles[i])
+                                / self.directed_ang_diff[i]
+                        }
+                        SegmentType::S => unreachable!("S segment always provides t"),
+                    }
+                });
+
+                closest_distance_sq = distance_sq;
+                distance_along_path = (total_distance + t * param) * self.rho;
+            }
+
+            total_distance += param;
+        }
+
+        distance_along_path
+    }
+}
+
 /// All the basic information about Dubin's Paths
 #[derive(Clone, Copy, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -440,6 +769,64 @@ impl DubinsPath {
         };
 
         qt + qi
+    }
+
+    /// Pre-calculate required info for [`est_distance_traveled`]
+    ///
+    /// [`est_distance_traveled`]: DubinsPathInfo::est_distance_traveled
+    #[must_use]
+    pub fn get_path_info(&self) -> DubinsPathInfo {
+        let mut centers = [Pos::ZERO; 3];
+        let mut start_angles = [0.0; 3];
+        let mut directed_ang_diff = [0.0; 3];
+
+        let segment_types = self.path_type.to_segment_types();
+        let segment_endpoints = {
+            let qi = PosRot::from_rot(self.qi);
+            let q1 = Self::segment(self.param[0], qi, segment_types[0]);
+            let q2 = Self::segment(self.param[1], q1, segment_types[1]);
+            let qe = Self::segment(self.param[2], q2, segment_types[2]);
+
+            [qi.into(), q1.into(), q2.into(), qe.into()]
+        };
+
+        for (i, (segment_type, param)) in segment_types.into_iter().zip(self.param).enumerate() {
+            let start = segment_endpoints[i];
+            let end = segment_endpoints[i + 1];
+
+            match segment_type {
+                SegmentType::L => {
+                    let center = get_arc_center::<true>(start, end, param);
+                    let start_ang = (start - center).to_angle();
+                    let end_ang = (end - center).to_angle();
+
+                    centers[i] = center;
+                    start_angles[i] = start_ang;
+                    directed_ang_diff[i] = directed_normalize_angle::<true>(end_ang - start_ang);
+                }
+                SegmentType::R => {
+                    let center = get_arc_center::<false>(start, end, param);
+                    let start_ang = (start - center).to_angle();
+                    let end_ang = (end - center).to_angle();
+
+                    centers[i] = center;
+                    start_angles[i] = start_ang;
+                    directed_ang_diff[i] = directed_normalize_angle::<false>(end_ang - start_ang);
+                }
+                SegmentType::S => {}
+            }
+        }
+
+        DubinsPathInfo {
+            qi: self.qi.into(),
+            rho: self.rho,
+            param: self.param,
+            segment_types,
+            centers,
+            segment_endpoints,
+            start_angles,
+            directed_ang_diff,
+        }
     }
 
     /// Scale the target configuration, translate back to the original starting point
@@ -616,6 +1003,7 @@ impl DubinsPath {
     ///
     /// assert!(shortest_path_possible.is_ok());
     /// ```
+    #[inline]
     pub fn shortest_from(q0: PosRot, q1: PosRot, rho: f64) -> Result<Self> {
         Self::shortest_in(q0, q1, rho, &PathType::ALL)
     }
@@ -899,11 +1287,10 @@ impl DubinsPath {
         self.sample(self.length())
     }
 
-    /// Extract a subpath from a path
+    /// Truncate the path to a subpath that ends at some distance along the path.
     ///
     /// # Arguments
     ///
-    /// * `path`: The path take the subpath from
     /// * `t`: The length along the path to end the subpath
     ///
     /// # Examples
@@ -940,6 +1327,31 @@ impl DubinsPath {
             qi: self.qi,
             rho: self.rho,
             param: [param0, param1, param2],
+            path_type: self.path_type,
+        }
+    }
+
+    /// Start the path at some distance along the path, ending at the original endpoint.
+    ///
+    /// # Arguments
+    ///
+    /// * `t`: The length along the path to start the subpath
+    #[must_use]
+    pub fn advance_start(&self, t: f64) -> Self {
+        let tprime = t / self.rho;
+
+        let param0 = self.param[0].min(tprime);
+        let param1 = self.param[1].min(tprime - param0);
+        let param2 = self.param[2].min(tprime - param0 - param1);
+
+        Self {
+            qi: self.sample(t),
+            rho: self.rho,
+            param: [
+                self.param[0] - param0,
+                self.param[1] - param1,
+                self.param[2] - param2,
+            ],
             path_type: self.path_type,
         }
     }
