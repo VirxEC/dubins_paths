@@ -3,7 +3,7 @@ use alloc::vec::Vec;
 #[cfg(feature = "alloc")]
 use core::ops::{Bound, RangeBounds};
 use core::{
-    f32::consts::TAU,
+    f32::consts::{PI, TAU},
     ops::{Add, Div, Mul, Sub},
 };
 
@@ -420,6 +420,11 @@ impl Pos {
     }
 
     #[inline]
+    fn cross(self, other: Self) -> f32 {
+        self.x * other.y - self.y * other.x
+    }
+
+    #[inline]
     fn length(self) -> f32 {
         Math::hypot(self.x, self.y)
     }
@@ -533,37 +538,49 @@ fn directed_normalize_angle<const CCW: bool>(angle: f32) -> f32 {
     }
 }
 
-/// Returns t in [0,1] where:
-/// 0 = start, 1 = end along the arc
+/// Returns (distance squared, t) where t is 0.0 or 1.0 if the point is outside the arc, and None if inside
 fn inv_lerp_arc<const CCW: bool>(
     point: Pos,
     center: Pos,
-    start_ang: f32,
-    end_ang: f32,
+    start: Pos,
+    end: Pos,
     directed_ang_diff: f32,
-) -> f32 {
-    let point_ang = (point - center).to_angle();
-    let mut progress = directed_normalize_angle::<CCW>(point_ang - start_ang);
+) -> (f32, Option<f32>) {
+    let start_dir = start - center;
+    let end_dir = end - center;
+    let rel = point - center;
 
-    // correct for the point being possibly outside of the arc
-    if progress.abs() > directed_ang_diff.abs() {
-        let dist_start = {
-            let d = mod2pi(point_ang - start_ang);
-            d.min(TAU - d)
-        };
-        let dist_end = {
-            let d = mod2pi(point_ang - end_ang);
-            d.min(TAU - d)
-        };
+    let cross_start = start_dir.cross(rel);
+    let cross_end = rel.cross(end_dir);
 
-        progress = if dist_start <= dist_end {
-            0.0
+    let is_large = directed_ang_diff.abs() > PI;
+    let inside = if CCW {
+        if is_large {
+            cross_start >= 0.0 || cross_end >= 0.0
         } else {
-            directed_ang_diff
-        };
-    }
+            cross_start >= 0.0 && cross_end >= 0.0
+        }
+    } else {
+        if is_large {
+            cross_start <= 0.0 || cross_end <= 0.0
+        } else {
+            cross_start <= 0.0 && cross_end <= 0.0
+        }
+    };
 
-    (progress / directed_ang_diff).clamp(0.0, 1.0)
+    if inside {
+        let rel_len = rel.length();
+        let dist = rel_len - 1.0;
+        (dist * dist, None)
+    } else {
+        let dist_start = (point - start).length_squared();
+        let dist_end = (point - end).length_squared();
+        if dist_start <= dist_end {
+            (dist_start, Some(0.0))
+        } else {
+            (dist_end, Some(1.0))
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -583,8 +600,8 @@ pub struct DubinsPathInfo {
     param: Params,
     segment_types: [SegmentType; 3],
     centers: [Pos; 3],
-    segment_endpoints: [PosRot; 4],
-    start_end_ang: [[f32; 2]; 3],
+    segment_endpoints: [Pos; 4],
+    start_angles: [f32; 3],
     directed_ang_diff: [f32; 3],
 }
 
@@ -624,13 +641,10 @@ impl DubinsPathInfo {
 
         for (i, (segment_type, param)) in self.segment_types.into_iter().zip(self.param).enumerate()
         {
-            let segment_start = self.segment_endpoints[i];
-            let segment_end = self.segment_endpoints[i + 1];
+            let start = self.segment_endpoints[i];
+            let end = self.segment_endpoints[i + 1];
 
-            let start: Pos = segment_start.into();
-            let end: Pos = segment_end.into();
-
-            let (distance_sq, t) = match segment_type {
+            let (distance_sq, t_opt) = match segment_type {
                 SegmentType::S => {
                     let delta = end - start;
                     let length_sq = delta.length_squared();
@@ -642,55 +656,41 @@ impl DubinsPathInfo {
                     let closest = delta * t + start;
                     let distance_sq = (point - closest).length_squared();
 
-                    (distance_sq, t)
+                    (distance_sq, Some(t))
                 }
-                SegmentType::L => {
-                    let t = inv_lerp_arc::<true>(
-                        point,
-                        self.centers[i],
-                        self.start_end_ang[i][0],
-                        self.start_end_ang[i][1],
-                        self.directed_ang_diff[i],
-                    );
-
-                    let distance_sq = if t <= 0.0 {
-                        (point - start).length_squared()
-                    } else if t >= 1.0 {
-                        (point - end).length_squared()
-                    } else {
-                        let rel = point - self.centers[i];
-                        let rel_len = rel.length();
-                        let dist = rel_len - 1.0;
-                        dist * dist
-                    };
-
-                    (distance_sq, t)
-                }
-                SegmentType::R => {
-                    let t = inv_lerp_arc::<false>(
-                        point,
-                        self.centers[i],
-                        self.start_end_ang[i][0],
-                        self.start_end_ang[i][1],
-                        self.directed_ang_diff[i],
-                    );
-
-                    let distance_sq = if t <= 0.0 {
-                        (point - start).length_squared()
-                    } else if t >= 1.0 {
-                        (point - end).length_squared()
-                    } else {
-                        let rel = point - self.centers[i];
-                        let rel_len = rel.length();
-                        let dist = rel_len - 1.0;
-                        dist * dist
-                    };
-
-                    (distance_sq, t)
-                }
+                SegmentType::L => inv_lerp_arc::<true>(
+                    point,
+                    self.centers[i],
+                    start,
+                    end,
+                    self.directed_ang_diff[i],
+                ),
+                SegmentType::R => inv_lerp_arc::<false>(
+                    point,
+                    self.centers[i],
+                    start,
+                    end,
+                    self.directed_ang_diff[i],
+                ),
             };
 
             if distance_sq < closest_distance_sq {
+                let t = t_opt.unwrap_or_else(|| {
+                    let point_ang = (point - self.centers[i]).to_angle();
+
+                    match segment_type {
+                        SegmentType::L => {
+                            directed_normalize_angle::<true>(point_ang - self.start_angles[i])
+                                / self.directed_ang_diff[i]
+                        }
+                        SegmentType::R => {
+                            directed_normalize_angle::<false>(point_ang - self.start_angles[i])
+                                / self.directed_ang_diff[i]
+                        }
+                        SegmentType::S => unreachable!("S segment always provides t"),
+                    }
+                });
+
                 closest_distance_sq = distance_sq;
                 distance_along_path = (total_distance + t * param) * self.rho;
             }
@@ -777,7 +777,7 @@ impl DubinsPath {
     #[must_use]
     pub fn get_path_info(&self) -> DubinsPathInfo {
         let mut centers = [Pos::ZERO; 3];
-        let mut start_end_ang = [[0.0; 2]; 3];
+        let mut start_angles = [0.0; 3];
         let mut directed_ang_diff = [0.0; 3];
 
         let segment_types = self.path_type.to_segment_types();
@@ -787,15 +787,12 @@ impl DubinsPath {
             let q2 = Self::segment(self.param[1], q1, segment_types[1]);
             let qe = Self::segment(self.param[2], q2, segment_types[2]);
 
-            [qi, q1, q2, qe]
+            [qi.into(), q1.into(), q2.into(), qe.into()]
         };
 
         for (i, (segment_type, param)) in segment_types.into_iter().zip(self.param).enumerate() {
-            let segment_start = segment_endpoints[i];
-            let start: Pos = segment_start.into();
-
-            let segment_end = segment_endpoints[i + 1];
-            let end: Pos = segment_end.into();
+            let start = segment_endpoints[i];
+            let end = segment_endpoints[i + 1];
 
             match segment_type {
                 SegmentType::L => {
@@ -804,7 +801,7 @@ impl DubinsPath {
                     let end_ang = (end - center).to_angle();
 
                     centers[i] = center;
-                    start_end_ang[i] = [start_ang, end_ang];
+                    start_angles[i] = start_ang;
                     directed_ang_diff[i] = directed_normalize_angle::<true>(end_ang - start_ang);
                 }
                 SegmentType::R => {
@@ -813,7 +810,7 @@ impl DubinsPath {
                     let end_ang = (end - center).to_angle();
 
                     centers[i] = center;
-                    start_end_ang[i] = [start_ang, end_ang];
+                    start_angles[i] = start_ang;
                     directed_ang_diff[i] = directed_normalize_angle::<false>(end_ang - start_ang);
                 }
                 SegmentType::S => {}
@@ -827,7 +824,7 @@ impl DubinsPath {
             segment_types,
             centers,
             segment_endpoints,
-            start_end_ang,
+            start_angles,
             directed_ang_diff,
         }
     }
