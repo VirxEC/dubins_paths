@@ -702,6 +702,232 @@ impl DubinsPathInfo {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "rkyv",
+    derive(rkyv::Serialize, rkyv::Deserialize, rkyv::Archive)
+)]
+/// Pre-calculated information about the path that accelerates calls to [`sample`] and [`sample_many`].
+///
+/// This struct can be obtained by calling [`DubinsPath::get_path_sampler`]
+///
+/// [`sample`]: DubinsPathSampler::sample
+/// [`sample_many`]: DubinsPathSampler::sample_many
+pub struct DubinsPathSampler {
+    rho: f32,
+    types: [SegmentType; 3],
+    param: Params,
+    qi: PosRot,
+    q0: PosRot,
+    q1: PosRot,
+    q2: PosRot,
+}
+
+impl DubinsPathSampler {
+    /// Scale the target configuration, translate back to the original starting point
+    fn offset(&self, q: PosRot) -> PosRot {
+        PosRot::from_floats(
+            q.x() * self.rho + self.qi.x(),
+            q.y() * self.rho + self.qi.y(),
+            mod2pi(q.rot()),
+        )
+    }
+
+    fn sample_cached(&self, tprime: f32) -> PosRot {
+        let q = if tprime < self.param[0] {
+            DubinsPath::segment(tprime, self.q0, self.types[0])
+        } else if tprime < self.param[0] + self.param[1] {
+            DubinsPath::segment(tprime - self.param[0], self.q1, self.types[1])
+        } else {
+            DubinsPath::segment(
+                tprime - self.param[0] - self.param[1],
+                self.q2,
+                self.types[2],
+            )
+        };
+
+        self.offset(q)
+    }
+
+    /// Get car location and orientation long after some travel distance
+    ///
+    /// # Arguments
+    ///
+    /// * `t`: The travel distance - must be less than the total length of the path
+    ///
+    /// ```
+    /// use core::f32::consts::PI;
+    ///
+    /// use dubins_paths::f32::{DubinsPath, PosRot};
+    ///
+    /// let shortest_path_possible = DubinsPath::shortest_from(
+    ///     PosRot::from_floats(0., 0., PI / 4.),
+    ///     PosRot::from_floats(100., -100., PI * (3. / 4.)),
+    ///     11.6,
+    /// )
+    /// .unwrap();
+    ///
+    /// // Find the halfway point of the path
+    /// let t = shortest_path_possible.length() / 2.;
+    ///
+    /// let sampler = shortest_path_possible.get_path_sampler();
+    /// let position: PosRot = sampler.sample(t);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn sample(&self, t: f32) -> PosRot {
+        self.sample_cached(t / self.rho)
+    }
+
+    /// Get a vec of all the points along the path,
+    /// with the start and end being sampled regardless of `step_distance`
+    ///
+    /// # Arguments
+    ///
+    /// * `step_distance`: The distance between each point
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use core::f32::consts::PI;
+    ///
+    /// use dubins_paths::f32::{DubinsPath, PosRot};
+    ///
+    /// let shortest_path_possible = DubinsPath::shortest_from(
+    ///     [0., 0., PI / 4.].into(),
+    ///     [100., -100., PI * (3. / 4.)].into(),
+    ///     11.6,
+    /// )
+    /// .unwrap();
+    ///
+    /// // The distance between each sample point
+    /// let step_distance = 5.;
+    ///
+    /// let sampler = shortest_path_possible.get_path_sampler();
+    /// let samples: Vec<PosRot> = sampler.sample_many(step_distance);
+    /// assert_eq!(
+    ///     samples.len(),
+    ///     (shortest_path_possible.length() / step_distance) as usize + 1
+    /// );
+    /// ```
+    #[must_use]
+    #[cfg(feature = "alloc")]
+    pub fn sample_many(&self, step_distance: f32) -> Vec<PosRot> {
+        // special case where we know to sample the whole range
+        debug_assert!(step_distance > 0.);
+
+        let sample_step_distance = step_distance / self.rho;
+        let end = self.param.iter().sum();
+
+        // Ignoring cast_sign_loss because we know step_distance should positive
+        // Ignoring cast_possible_truncation because rounding down is the correct behavior
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        let mut num_samples = (end / sample_step_distance) as usize;
+
+        // If the num of samples we have specified here floors to 0 for an Unbounded starting range limit - we intentionally up that to 1 to give us the starting point
+        // This should cover full "interpolation" of curves with a distance close or under the sampling value
+        num_samples = num_samples.max(1);
+
+        (0..num_samples)
+            .map(|i| {
+                // There's nothing we can do about the precision loss
+                #[allow(clippy::cast_precision_loss)]
+                (i as f32 * sample_step_distance)
+            })
+            .map(|t| self.sample_cached(t))
+            .chain(core::iter::once(self.sample_cached(end)))
+            .collect()
+    }
+
+    /// Get a vec of all the points along the path, within the specified range
+    ///
+    /// # Arguments
+    ///
+    /// * `step_distance`: The distance between each point
+    /// * `range`: The start and end distance of the path to sample
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use core::f32::consts::PI;
+    ///
+    /// use dubins_paths::f32::{DubinsPath, PosRot};
+    ///
+    /// let shortest_path_possible = DubinsPath::shortest_from(
+    ///     [0., 0., PI / 4.].into(),
+    ///     [100., -100., PI * (3. / 4.)].into(),
+    ///     11.6,
+    /// )
+    /// .unwrap();
+    ///
+    /// // The distance between each sample point
+    /// let step_distance = 5.;
+    ///
+    /// // Sample from start_distance to end_distance
+    /// let distances = 40.0..=120.0;
+    ///
+    /// let sampler = shortest_path_possible.get_path_sampler();
+    /// let samples: Vec<PosRot> = sampler.sample_many_range(step_distance, distances);
+    /// assert_eq!(samples.len(), 16);
+    /// ```
+    #[must_use]
+    #[cfg(feature = "alloc")]
+    pub fn sample_many_range<T: RangeBounds<f32>>(
+        &self,
+        step_distance: f32,
+        range: T,
+    ) -> Vec<PosRot> {
+        debug_assert!(step_distance > 0.);
+
+        let sample_step_distance = step_distance / self.rho;
+
+        let mut start = match range.start_bound() {
+            Bound::Included(start) => *start,
+            Bound::Excluded(start) => *start + step_distance,
+            Bound::Unbounded => 0.0,
+        };
+        let (end, includes_end) = match range.end_bound() {
+            Bound::Included(end) => (*end, true),
+            Bound::Excluded(end) => (*end, false),
+            Bound::Unbounded => (self.param.iter().sum::<f32>() * self.rho, true),
+        };
+
+        let sample_range = (end - start) / step_distance;
+        start /= self.rho;
+
+        // Ignoring cast_sign_loss because we know step_distance is positive
+        // Ignoring cast_possible_truncation because that is the correct behavior
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        let mut num_samples = sample_range as usize;
+
+        // If the num of samples we have specified here floors to 0 for an Unbounded starting range limit - we intentionally up that to 1 to give us the starting point
+        // This should cover full "interpolation" of curves with a distance close or under the sampling value
+        if num_samples == 0 && range.start_bound() == Bound::Unbounded {
+            num_samples = 1;
+        }
+
+        let mut samples: Vec<_> = (0..num_samples)
+            .map(|i| {
+                // There's nothing we can do about the precision loss
+                #[allow(clippy::cast_precision_loss)]
+                (i as f32 * sample_step_distance + start)
+            })
+            .map(|t| self.sample_cached(t))
+            .collect();
+
+        if includes_end {
+            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+            let max_num_samples = Math::ceil(sample_range) as usize;
+            if max_num_samples != num_samples {
+                samples.push(self.sample_cached(end / self.rho));
+            }
+        }
+
+        samples
+    }
+}
+
 /// All the basic information about Dubin's Paths
 #[derive(Clone, Copy, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -838,7 +1064,9 @@ impl DubinsPath {
         )
     }
 
-    /// Get car location and orientation long after some travel distance
+    /// Get car location and orientation long after some travel distance.
+    ///
+    /// If multiple calls to `sample` will be made, consider using [`DubinsPathSampler::sample`] instead, which has pre-cached information to make sampling faster.
     ///
     /// # Arguments
     ///
@@ -882,26 +1110,6 @@ impl DubinsPath {
 
                 Self::segment(tprime - self.param[0] - self.param[1], q2, types[2])
             }
-        };
-
-        self.offset(q)
-    }
-
-    #[cfg(feature = "alloc")]
-    fn sample_cached(
-        &self,
-        tprime: f32,
-        types: [SegmentType; 3],
-        qi: PosRot,
-        q1: PosRot,
-        q2: PosRot,
-    ) -> PosRot {
-        let q = if tprime < self.param[0] {
-            Self::segment(tprime, qi, types[0])
-        } else if tprime < self.param[0] + self.param[1] {
-            Self::segment(tprime - self.param[0], q1, types[1])
-        } else {
-            Self::segment(tprime - self.param[0] - self.param[1], q2, types[2])
         };
 
         self.offset(q)
@@ -1107,6 +1315,55 @@ impl DubinsPath {
         self.param[i] * self.rho
     }
 
+    /// Get a sampler that pre-calculates all the points along the path to accelerate calls to [`sample`] and [`sample_many`].
+    ///
+    /// This is especially useful if you plan on calling [`sample`] or [`sample_many`] multiple times on the same path, as it avoids redundant calculations.
+    ///
+    /// # Examples
+    ////
+    /// ```
+    /// use core::f32::consts::PI;
+    ///
+    /// use dubins_paths::{
+    ///     PathType,
+    ///     f32::{DubinsPath, PosRot},
+    /// };
+    ///
+    /// let shortest_path_possible = DubinsPath::shortest_from(
+    ///     [0., 0., PI / 4.].into(),
+    ///     [100., -100., PI * (3. / 4.)].into(),
+    ///     11.6,
+    /// )
+    /// .unwrap();
+    ///
+    /// let path_sampler = shortest_path_possible.get_path_sampler();
+    /// let positions = [
+    ///     path_sampler.sample(50.),
+    ///     path_sampler.sample(90.),
+    ///     path_sampler.sample(95.),
+    ///     path_sampler.sample(102.),
+    ///     path_sampler.sample(110.),
+    /// ];
+    /// ```
+    #[must_use]
+    pub fn get_path_sampler(&self) -> DubinsPathSampler {
+        let types = self.path_type.to_segment_types();
+
+        let qi = PosRot::from_rot(self.qi);
+        let q1 = Self::segment(self.param[0], qi, types[0]);
+        let q2 = Self::segment(self.param[1], q1, types[1]);
+
+        DubinsPathSampler {
+            rho: self.rho,
+            types,
+            param: self.param,
+            qi: self.qi,
+            q0: qi,
+            q1,
+            q2,
+        }
+    }
+
     /// Get a vec of all the points along the path,
     /// with the start and end being sampled regardless of `step_distance`
     ///
@@ -1137,39 +1394,11 @@ impl DubinsPath {
     ///     (shortest_path_possible.length() / step_distance) as usize + 1
     /// );
     /// ```
+    #[inline]
     #[must_use]
     #[cfg(feature = "alloc")]
     pub fn sample_many(&self, step_distance: f32) -> Vec<PosRot> {
-        // special case where we know to sample the whole range
-        debug_assert!(step_distance > 0.);
-
-        let types = self.path_type.to_segment_types();
-
-        let qi = PosRot::from_rot(self.qi);
-        let q1 = Self::segment(self.param[0], qi, types[0]);
-        let q2 = Self::segment(self.param[1], q1, types[1]);
-        let sample_step_distance = step_distance / self.rho;
-
-        let end = self.param.iter().sum();
-
-        // Ignoring cast_sign_loss because we know step_distance should positive
-        // Ignoring cast_possible_truncation because rounding down is the correct behavior
-        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-        let mut num_samples = (end / sample_step_distance) as usize;
-
-        // If the num of samples we have specified here floors to 0 for an Unbounded starting range limit - we intentionally up that to 1 to give us the starting point
-        // This should cover full "interpolation" of curves with a distance close or under the sampling value
-        num_samples = num_samples.max(1);
-
-        (0..num_samples)
-            .map(|i| {
-                // There's nothing we can do about the precision loss
-                #[allow(clippy::cast_precision_loss)]
-                (i as f32 * sample_step_distance)
-            })
-            .map(|t| self.sample_cached(t, types, qi, q1, q2))
-            .chain(core::iter::once(self.sample_cached(end, types, qi, q1, q2)))
-            .collect()
+        self.get_path_sampler().sample_many(step_distance)
     }
 
     /// Get a vec of all the points along the path, within the specified range
@@ -1202,6 +1431,7 @@ impl DubinsPath {
     /// let samples: Vec<PosRot> = shortest_path_possible.sample_many_range(step_distance, distances);
     /// assert_eq!(samples.len(), 16);
     /// ```
+    #[inline]
     #[must_use]
     #[cfg(feature = "alloc")]
     pub fn sample_many_range<T: RangeBounds<f32>>(
@@ -1209,58 +1439,8 @@ impl DubinsPath {
         step_distance: f32,
         range: T,
     ) -> Vec<PosRot> {
-        debug_assert!(step_distance > 0.);
-
-        let types = self.path_type.to_segment_types();
-
-        let qi = PosRot::from_rot(self.qi);
-        let q1 = Self::segment(self.param[0], qi, types[0]);
-        let q2 = Self::segment(self.param[1], q1, types[1]);
-        let sample_step_distance = step_distance / self.rho;
-
-        let mut start = match range.start_bound() {
-            Bound::Included(start) => *start,
-            Bound::Excluded(start) => *start + step_distance,
-            Bound::Unbounded => 0.0,
-        };
-        let (end, includes_end) = match range.end_bound() {
-            Bound::Included(end) => (*end, true),
-            Bound::Excluded(end) => (*end, false),
-            Bound::Unbounded => (self.length(), true),
-        };
-
-        let sample_range = (end - start) / step_distance;
-        start /= self.rho;
-
-        // Ignoring cast_sign_loss because we know step_distance is positive
-        // Ignoring cast_possible_truncation because that is the correct behavior
-        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-        let mut num_samples = sample_range as usize;
-
-        // If the num of samples we have specified here floors to 0 for an Unbounded starting range limit - we intentionally up that to 1 to give us the starting point
-        // This should cover full "interpolation" of curves with a distance close or under the sampling value
-        if num_samples == 0 && range.start_bound() == Bound::Unbounded {
-            num_samples = 1;
-        }
-
-        let mut samples: Vec<_> = (0..num_samples)
-            .map(|i| {
-                // There's nothing we can do about the precision loss
-                #[allow(clippy::cast_precision_loss)]
-                (i as f32 * sample_step_distance + start)
-            })
-            .map(|t| self.sample_cached(t, types, qi, q1, q2))
-            .collect();
-
-        if includes_end {
-            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-            let max_num_samples = Math::ceil(sample_range) as usize;
-            if max_num_samples != num_samples {
-                samples.push(self.sample_cached(end / self.rho, types, qi, q1, q2));
-            }
-        }
-
-        samples
+        self.get_path_sampler()
+            .sample_many_range(step_distance, range)
     }
 
     /// Get the endpoint of the path
