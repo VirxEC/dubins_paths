@@ -19,13 +19,13 @@ unsafe_code = "forbid"
 [dev-dependencies]
 approx = "0.5.1"
 criterion = "0.8.0"
-rand = "0.10.0"
+rand = "0.10.1"
 
 [dependencies]
-glam = { version = "0.32.0", default-features = false, optional = true }
+glam = { version = "0.32.1", default-features = false, optional = true }
 libm = { version = "0.2.15", optional = true }
 serde = { version = "1.0.228", default-features = false, features = ["derive"], optional = true }
-rkyv = { version = "0.8.12", default-features = false, optional = true }
+rkyv = { version = "0.8.16", default-features = false, optional = true }
 
 [features]
 default = ["std"]
