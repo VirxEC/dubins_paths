@@ -4,8 +4,6 @@ use dubins_paths::{
     PathType,
     f64::{DubinsPath, PosRot},
 };
-#[cfg(feature = "glam")]
-use glam::DVec3;
 use rand::RngExt;
 
 const POSROT_EPSILON: f64 = 0.00001;
@@ -13,15 +11,6 @@ const TURN_RADIUS: f64 = 1. / 0.00076;
 
 #[test]
 fn many_path_correctness() {
-    #[cfg(feature = "glam")]
-    fn angle_2d(vec1: f64, vec2: f64) -> f64 {
-        DVec3::new(vec1.cos(), vec1.sin(), 0.)
-            .dot(DVec3::new(vec2.cos(), vec2.sin(), 0.))
-            .clamp(-1., 1.)
-            .acos()
-    }
-
-    #[cfg(not(feature = "glam"))]
     fn angle_2d(vec1: f64, vec2: f64) -> f64 {
         (vec1.cos() * vec1.cos() + vec2.sin() * vec2.sin())
             .clamp(-1., 1.)
